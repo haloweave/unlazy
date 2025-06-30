@@ -5,7 +5,7 @@ export default function SignUpPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <SignUp 
-          redirectUrl="/chat"
+          redirectUrl="/"
           appearance={{
             elements: {
               rootBox: "w-full",
