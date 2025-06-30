@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "scheck": "tsc --noEmit && npm run lint"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.23.0",
@@ -38,6 +39,7 @@
     "openai": "^5.7.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

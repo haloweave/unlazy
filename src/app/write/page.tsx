@@ -308,9 +308,11 @@ export default function DocumentPage() {
               />
             </div>
 
-            {/* Tabbed Sidebar */}
+            {/* AI Copilot Sidebar */}
             <div className="lg:col-span-1">
-              <TabbedSidebar content={content} />
+              <div className="sticky top-8">
+                <TabbedSidebar content={content} />
+              </div>
             </div>
           </div>
         </div>

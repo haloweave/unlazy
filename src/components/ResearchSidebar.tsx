@@ -1,17 +1,24 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, ExternalLink, BookOpen, Loader2 } from 'lucide-react';
+import { Search, ExternalLink, BookOpen, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debounce } from 'lodash';
+import ReactMarkdown from 'react-markdown';
 
 interface ResearchResult {
   title: string;
   url: string;
-  text: string;
+  text: string;  
   highlights: string[];
   score: number;
   publishedDate?: string;
+  author?: string;
+}
+
+interface ResearchSource {
+  title: string;
+  url: string;
   author?: string;
 }
 
@@ -22,9 +29,13 @@ interface ResearchSidebarProps {
 export default function ResearchSidebar({ content }: ResearchSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<ResearchResult[]>([]);
+  const [summary, setSummary] = useState('');
+  const [sources, setSources] = useState<ResearchSource[]>([]);
+  const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'search' | 'academic'>('search');
   const [autoSuggestions, setAutoSuggestions] = useState<string[]>([]);
+  const [showSources, setShowSources] = useState(false);
 
   // Auto-generate research suggestions based on content
   const generateSuggestions = useCallback((text: string) => {
@@ -76,9 +87,16 @@ export default function ResearchSidebar({ content }: ResearchSidebarProps) {
 
       const data = await response.json();
       setResults(data.results || []);
+      setSummary(data.summary || '');
+      setSources(data.sources || []);
+      setFollowUpQuestions(data.followUpQuestions || []);
+      setShowSources(false); // Reset sources visibility
     } catch (error) {
       console.error('Research error:', error);
       setResults([]);
+      setSummary('');
+      setSources([]);
+      setFollowUpQuestions([]);
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +162,7 @@ export default function ResearchSidebar({ content }: ResearchSidebarProps) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={`${activeTab === 'academic' ? 'Find academic research...' : 'Search for information...'}`}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-gray-900 placeholder-gray-500"
           />
           <motion.button
             type="submit"
@@ -187,64 +205,108 @@ export default function ResearchSidebar({ content }: ResearchSidebarProps) {
           </div>
         )}
 
-        {/* Results */}
+        {/* Research Summary */}
         <AnimatePresence>
-          {results.length > 0 && (
-            <div className="space-y-4">
-              {results.map((result, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-gray-900 text-sm leading-tight">
-                      {result.title}
-                    </h3>
-                    <a
-                      href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-600 hover:text-indigo-800 ml-2 flex-shrink-0"
+          {summary && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-4"
+            >
+              {/* Summary Content */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="prose prose-sm max-w-none text-gray-700">
+                  <ReactMarkdown>{summary}</ReactMarkdown>
+                </div>
+              </div>
+
+              {/* Follow-up Questions */}
+              {followUpQuestions.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Related</h4>
+                  {followUpQuestions.map((question, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setSearchQuery(question.replace('?', ''));
+                        performSearch(question.replace('?', ''));
+                      }}
+                      className="w-full text-left p-3 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors"
                     >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </div>
-                  
-                  <p className="text-gray-600 text-xs mb-2 line-clamp-3">
-                    {result.text}
-                  </p>
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-                  {result.highlights && result.highlights.length > 0 && (
-                    <div className="mb-2">
-                      {result.highlights.slice(0, 2).map((highlight, i) => (
-                        <div key={i} className="text-xs text-indigo-700 bg-indigo-50 rounded px-2 py-1 mb-1">
-                          &ldquo;{highlight}&rdquo;
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              {/* Sources Section */}
+              {sources.length > 0 && (
+                <div className="border-t border-gray-200 pt-4">
+                  <button
+                    onClick={() => setShowSources(!showSources)}
+                    className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900 mb-3"
+                  >
+                    <span>Sources ({sources.length})</span>
+                    {showSources ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
 
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>
-                      {result.author && `${result.author} • `}
-                      {result.publishedDate && new Date(result.publishedDate).toLocaleDateString()}
-                    </span>
-                    <span className="bg-gray-100 px-2 py-1 rounded">
-                      Score: {(result.score * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                  <AnimatePresence>
+                    {showSources && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-2"
+                      >
+                        {sources.map((source, index) => (
+                          <div
+                            key={index}
+                            className="flex items-start space-x-2 p-2 bg-white rounded border border-gray-100 hover:border-gray-200 transition-colors"
+                          >
+                            <span className="text-xs font-medium text-gray-500 mt-1 flex-shrink-0">
+                              [{index + 1}]
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium line-clamp-2"
+                              >
+                                {source.title}
+                              </a>
+                              {source.author && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {source.author}
+                                </p>
+                              )}
+                            </div>
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+            </motion.div>
           )}
         </AnimatePresence>
 
         {/* Empty State */}
-        {results.length === 0 && !isLoading && autoSuggestions.length === 0 && (
+        {!summary && !isLoading && autoSuggestions.length === 0 && (
           <div className="text-center text-gray-500 py-8">
             <Search className="h-8 w-8 mx-auto mb-3 text-gray-300" />
             <p className="text-sm">
