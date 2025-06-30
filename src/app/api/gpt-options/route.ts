@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST() {
   // You can parse the question if you want: const { question } = await request.json();
   return NextResponse.json({
     options: [

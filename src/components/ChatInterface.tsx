@@ -16,7 +16,7 @@ interface Message {
 }
 
 export default function ChatInterface() {
-  const { user } = useUser();
+  const { } = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -167,11 +167,11 @@ export default function ChatInterface() {
           <div className="text-center text-gray-500 mt-8">
             <Brain className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <p className="text-lg font-medium">Welcome to Unlazy.ai!</p>
-            <p className="text-sm">Ask me anything and let's think together.</p>
+            <p className="text-sm">Ask me anything and let&apos;s think together.</p>
           </div>
         )}
         <AnimatePresence>
-          {messages.map((message, idx) => (
+          {messages.map((message) => (
             <motion.div
               key={message.id}
               initial={{ opacity: 0, y: 20 }}

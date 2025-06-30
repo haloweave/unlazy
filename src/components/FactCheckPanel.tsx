@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlertTriangle, CheckCircle, AlertCircle, Clock, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debounce } from 'lodash';
@@ -33,50 +33,53 @@ export default function FactCheckPanel({ content, isActive }: FactCheckPanelProp
   const [checkMode, setCheckMode] = useState<'realtime' | 'detailed'>('realtime');
 
   // Real-time fact checking with debounce
-  const performFactCheck = useCallback(
-    debounce(async (text: string, mode: 'realtime' | 'detailed' = 'realtime') => {
-      if (!text || text.length < 100) {
-        setIssues([]);
-        return;
+  const performFactCheck = useCallback(async (text: string, mode: 'realtime' | 'detailed' = 'realtime') => {
+    if (!text || text.length < 100) {
+      setIssues([]);
+      return;
+    }
+
+    setIsChecking(true);
+    try {
+      const response = await fetch('/api/factcheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text, mode }),
+      });
+
+      if (!response.ok) throw new Error('Fact-check request failed');
+
+      const data: FactCheckResult = await response.json();
+      
+      if (Array.isArray(data.result)) {
+        // Real-time mode returns array directly
+        setIssues(data.result);
+      } else {
+        // Detailed mode returns object with issues array
+        setIssues(data.result.issues || []);
       }
+      
+      setLastChecked(new Date());
+    } catch (error) {
+      console.error('Fact-check error:', error);
+      setIssues([]);
+    } finally {
+      setIsChecking(false);
+    }
+  }, [setIssues, setIsChecking, setLastChecked]);
 
-      setIsChecking(true);
-      try {
-        const response = await fetch('/api/factcheck', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: text, mode }),
-        });
-
-        if (!response.ok) throw new Error('Fact-check request failed');
-
-        const data: FactCheckResult = await response.json();
-        
-        if (Array.isArray(data.result)) {
-          // Real-time mode returns array directly
-          setIssues(data.result);
-        } else {
-          // Detailed mode returns object with issues array
-          setIssues(data.result.issues || []);
-        }
-        
-        setLastChecked(new Date());
-      } catch (error) {
-        console.error('Fact-check error:', error);
-        setIssues([]);
-      } finally {
-        setIsChecking(false);
-      }
-    }, 2000), // 2 second debounce for real-time checking
-    []
+  // Debounced version of the fact check function
+  const debouncedFactCheck = useMemo(
+    () => debounce(performFactCheck, 2000),
+    [performFactCheck]
   );
 
   // Effect for real-time checking
   useEffect(() => {
     if (isActive && checkMode === 'realtime' && content) {
-      performFactCheck(content, 'realtime');
+      debouncedFactCheck(content, 'realtime');
     }
-  }, [content, isActive, checkMode, performFactCheck]);
+  }, [content, isActive, checkMode, debouncedFactCheck]);
 
   // Manual detailed check
   const runDetailedCheck = () => {
@@ -217,7 +220,7 @@ export default function FactCheckPanel({ content, isActive }: FactCheckPanelProp
                       </div>
                       
                       <p className="text-sm font-medium mb-1">
-                        "{issue.text}"
+                        &ldquo;{issue.text}&rdquo;
                       </p>
                       
                       <p className="text-sm mb-2">

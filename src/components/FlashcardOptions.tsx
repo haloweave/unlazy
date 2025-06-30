@@ -12,7 +12,7 @@ interface FlashcardOptionsProps {
   sessionId: string;
 }
 
-export default function FlashcardOptions({ options, onSelect, sessionId }: FlashcardOptionsProps) {
+export default function FlashcardOptions({ options, onSelect }: FlashcardOptionsProps) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const handleCardClick = (option: Option) => {

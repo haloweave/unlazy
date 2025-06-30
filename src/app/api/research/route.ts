@@ -56,7 +56,7 @@ Enhanced query:`
         if (enhancedResult && enhancedResult.length > 0) {
           enhancedQuery = enhancedResult;
         }
-      } catch (error) {
+      } catch {
         console.log('LLM enhancement failed, using original query');
         // Continue with original query if LLM fails
       }
@@ -111,14 +111,14 @@ Enhanced query:`
     }
 
     // Process results to extract key information
-    const processedResults = results.results.map((result: any) => ({
-      title: result.title,
+    const processedResults = results.results.map((result) => ({
+      title: result.title || 'Untitled',
       url: result.url,
       text: result.text ? result.text.substring(0, 500) + '...' : '',
       highlights: result.highlights || [],
       score: result.score,
-      publishedDate: result.publishedDate,
-      author: result.author,
+      publishedDate: result.publishedDate || undefined,
+      author: result.author || undefined,
     }));
 
     return NextResponse.json({

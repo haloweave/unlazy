@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, ExternalLink, BookOpen, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debounce } from 'lodash';
@@ -27,32 +27,35 @@ export default function ResearchSidebar({ content }: ResearchSidebarProps) {
   const [autoSuggestions, setAutoSuggestions] = useState<string[]>([]);
 
   // Auto-generate research suggestions based on content
-  const generateSuggestions = useCallback(
-    debounce((text: string) => {
-      if (!text || text.length < 50) return;
+  const generateSuggestions = useCallback((text: string) => {
+    if (!text || text.length < 50) return;
 
-      // Extract key topics and entities from the text
-      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
-      const suggestions = sentences
-        .slice(-3) // Last 3 sentences
-        .map(sentence => {
-          // Extract main concepts
-          const words = sentence.trim().split(' ');
-          if (words.length < 5) return null;
-          
-          // Create research query from sentence
-          return words.slice(0, 8).join(' ').replace(/[^\w\s]/g, '').trim();
-        })
-        .filter(Boolean) as string[];
+    // Extract key topics and entities from the text
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    const suggestions = sentences
+      .slice(-3) // Last 3 sentences
+      .map(sentence => {
+        // Extract main concepts
+        const words = sentence.trim().split(' ');
+        if (words.length < 5) return null;
+        
+        // Create research query from sentence
+        return words.slice(0, 8).join(' ').replace(/[^\w\s]/g, '').trim();
+      })
+      .filter(Boolean) as string[];
 
-      setAutoSuggestions(suggestions);
-    }, 1000),
-    []
+    setAutoSuggestions(suggestions);
+  }, [setAutoSuggestions]);
+
+  // Debounced version of the suggestions function
+  const debouncedGenerateSuggestions = useMemo(
+    () => debounce(generateSuggestions, 1000),
+    [generateSuggestions]
   );
 
   useEffect(() => {
-    generateSuggestions(content);
-  }, [content, generateSuggestions]);
+    debouncedGenerateSuggestions(content);
+  }, [content, debouncedGenerateSuggestions]);
 
   const performSearch = async (query: string, type: 'search' | 'academic' = activeTab) => {
     if (!query.trim()) return;
@@ -94,7 +97,7 @@ export default function ResearchSidebar({ content }: ResearchSidebarProps) {
   }: { 
     id: 'search' | 'academic';
     label: string;
-    icon: any;
+    icon: React.ComponentType<{ className?: string }>;
     active: boolean;
   }) => (
     <button
@@ -219,7 +222,7 @@ export default function ResearchSidebar({ content }: ResearchSidebarProps) {
                     <div className="mb-2">
                       {result.highlights.slice(0, 2).map((highlight, i) => (
                         <div key={i} className="text-xs text-indigo-700 bg-indigo-50 rounded px-2 py-1 mb-1">
-                          "{highlight}"
+                          &ldquo;{highlight}&rdquo;
                         </div>
                       ))}
                     </div>

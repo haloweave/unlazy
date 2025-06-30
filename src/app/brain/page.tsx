@@ -131,7 +131,7 @@ export default async function BrainPage() {
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-6">Weekly Progress</h2>
           <div className="flex items-end justify-between h-32">
-            {metrics.weeklyProgress.map((day, index) => (
+            {metrics.weeklyProgress.map((day) => (
               <div key={day.day} className="flex flex-col items-center space-y-2">
                 <div 
                   className="bg-indigo-600 rounded-t-lg transition-all duration-300 hover:bg-indigo-700"

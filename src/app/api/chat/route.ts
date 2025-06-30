@@ -79,8 +79,9 @@ export async function POST(request: NextRequest) {
 
     // Determine conversation phase
     let phase = 'initial';
-    let lastPromptType = 'none';
-    let userEffortLevel = 'none';
+    // Effort level tracking (for future use)
+    // let lastPromptType = 'none';
+    // let userEffortLevel = 'none';
     
     if (chatHistory && chatHistory.length > 0) {
       // Check if this is a new conversation or continuation
@@ -104,13 +105,13 @@ export async function POST(request: NextRequest) {
       
       if (notSureCount >= 2) {
         phase = 'repeated_stuck';
-        userEffortLevel = 'struggling';
+        // userEffortLevel = 'struggling';
       } else if (isStuck && phase === 'engaged') {
         phase = 'stuck';
-        userEffortLevel = 'needs_help';
+        // userEffortLevel = 'needs_help';
       } else if (lastUserMessage.length > 0) {
         // User made some effort
-        userEffortLevel = 'trying';
+        // userEffortLevel = 'trying';
       }
       
       if (assistantMessages.length > 0) {
@@ -121,13 +122,13 @@ export async function POST(request: NextRequest) {
             lastAssistantMessage.includes('What do you think') ||
             lastAssistantMessage.includes('What\'s your') ||
             lastAssistantMessage.includes('Before I help')) {
-          lastPromptType = 'nudge';
+          // lastPromptType = 'nudge';
         } else if (lastAssistantMessage.includes('Let\'s') || 
                    lastAssistantMessage.includes('Want to') ||
                    lastAssistantMessage.includes('Try this')) {
-          lastPromptType = 'option';
+          // lastPromptType = 'option';
         } else {
-          lastPromptType = 'insight';
+          // lastPromptType = 'insight';
         }
       }
     }
@@ -238,7 +239,7 @@ Be warm, curious, and focused on helping the user learn — not just giving answ
           // Remove the JSON from the main response for display
           mainResponse = aiResponse.replace(optionsMatch[0], '').trim();
         }
-      } catch (e) {
+      } catch {
         // Not valid JSON, fallback to message
       }
     }

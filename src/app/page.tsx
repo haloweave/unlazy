@@ -4,7 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle, Search, FileText, Zap, ArrowRight, AlertTriangle } from "lucide-react";
+import { CheckCircle, Search, Zap, ArrowRight } from "lucide-react";
 
 // Cycling typing animation with backspace effect
 function CyclingTypewriter({ 

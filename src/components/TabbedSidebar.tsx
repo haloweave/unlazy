@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from 'react';
-import { Search, Shield, AlertTriangle, CheckCircle, AlertCircle, Clock, RefreshCw, ExternalLink, BookOpen, Loader2 } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Search, Shield, AlertTriangle, CheckCircle, RefreshCw, ExternalLink, BookOpen, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 
@@ -66,50 +66,53 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
   };
 
   // Fact checking functionality
-  const performFactCheck = useCallback(
-    debounce(async (text: string) => {
-      if (!text || text.length < 100 || !factCheckEnabled) {
-        setFactCheckIssues([]);
-        return;
+  const performFactCheck = useCallback(async (text: string) => {
+    if (!text || text.length < 100 || !factCheckEnabled) {
+      setFactCheckIssues([]);
+      return;
+    }
+
+    setIsLoadingFactCheck(true);
+    try {
+      const response = await fetch('/api/factcheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text, mode: 'realtime' }),
+      });
+
+      if (!response.ok) throw new Error('Fact-check request failed');
+
+      const data = await response.json();
+      
+      if (Array.isArray(data.result)) {
+        setFactCheckIssues(data.result);
+      } else {
+        setFactCheckIssues(data.result.issues || []);
       }
+      
+      setLastFactChecked(new Date());
+    } catch (error) {
+      console.error('Fact-check error:', error);
+      setFactCheckIssues([]);
+    } finally {
+      setIsLoadingFactCheck(false);
+    }
+  }, [factCheckEnabled, setFactCheckIssues, setIsLoadingFactCheck, setLastFactChecked]);
 
-      setIsLoadingFactCheck(true);
-      try {
-        const response = await fetch('/api/factcheck', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: text, mode: 'realtime' }),
-        });
-
-        if (!response.ok) throw new Error('Fact-check request failed');
-
-        const data = await response.json();
-        
-        if (Array.isArray(data.result)) {
-          setFactCheckIssues(data.result);
-        } else {
-          setFactCheckIssues(data.result.issues || []);
-        }
-        
-        setLastFactChecked(new Date());
-      } catch (error) {
-        console.error('Fact-check error:', error);
-        setFactCheckIssues([]);
-      } finally {
-        setIsLoadingFactCheck(false);
-      }
-    }, 2000),
-    [factCheckEnabled]
+  // Debounced version of the fact check function
+  const debouncedFactCheck = useMemo(
+    () => debounce(performFactCheck, 2000),
+    [performFactCheck]
   );
 
   // Auto fact-check when enabled
   useEffect(() => {
     if (factCheckEnabled && content) {
-      performFactCheck(content);
+      debouncedFactCheck(content);
     } else {
       setFactCheckIssues([]);
     }
-  }, [content, factCheckEnabled, performFactCheck]);
+  }, [content, factCheckEnabled, debouncedFactCheck]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,14 +128,6 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
     }
   };
 
-  const getConfidenceIcon = (confidence: string) => {
-    switch (confidence) {
-      case 'HIGH': return <AlertTriangle className="h-4 w-4" />;
-      case 'MEDIUM': return <AlertCircle className="h-4 w-4" />;
-      case 'LOW': return <Clock className="h-4 w-4" />;
-      default: return <CheckCircle className="h-4 w-4" />;
-    }
-  };
 
   return (
     <div className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -249,7 +244,7 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
                           {issue.confidence} CONFIDENCE
                         </span>
                       </div>
-                      <p className="text-sm font-medium mb-1">"{issue.text}"</p>
+                      <p className="text-sm font-medium mb-1">&ldquo;{issue.text}&rdquo;</p>
                       <p className="text-xs mb-3 text-gray-600">{issue.issue}</p>
                       <div className="bg-white bg-opacity-70 rounded p-2 border-l-2 border-gray-300">
                         <p className="text-xs font-medium text-gray-700">
@@ -302,7 +297,7 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
                     <div className="mb-2">
                       {result.highlights.slice(0, 2).map((highlight, i) => (
                         <div key={i} className="text-xs text-black bg-black/5 rounded px-2 py-1 mb-1">
-                          "{highlight}"
+                          &ldquo;{highlight}&rdquo;
                         </div>
                       ))}
                     </div>

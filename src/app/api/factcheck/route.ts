@@ -117,7 +117,7 @@ Return detailed JSON analysis:
         contentLength: content.length,
         processingTime: Date.now()
       });
-    } catch (parseError) {
+    } catch {
       // If JSON parsing fails, return as text with empty issues array
       return NextResponse.json({
         mode,
