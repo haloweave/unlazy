@@ -29,7 +29,7 @@ interface TabbedSidebarProps {
 }
 
 export default function TabbedSidebar({ content }: TabbedSidebarProps) {
-  const [factCheckEnabled, setFactCheckEnabled] = useState(false);
+  const [factCheckEnabled, setFactCheckEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<ResearchResult[]>([]);
   const [factCheckIssues, setFactCheckIssues] = useState<FactCheckIssue[]>([]);
@@ -148,20 +148,28 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
           <div className="flex items-center space-x-2">
             <Shield className="h-4 w-4 text-gray-500" />
             <span className="text-sm text-gray-600">Fact Check</span>
-            <motion.button
-              onClick={() => setFactCheckEnabled(!factCheckEnabled)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                factCheckEnabled ? 'bg-black' : 'bg-gray-200'
-              }`}
-              whileTap={{ scale: 0.95 }}
-            >
-              <motion.span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  factCheckEnabled ? 'translate-x-6' : 'translate-x-1'
+            <div className="relative group">
+              <motion.button
+                onClick={() => setFactCheckEnabled(!factCheckEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  factCheckEnabled ? 'bg-black' : 'bg-gray-200'
                 }`}
-                layout
-              />
-            </motion.button>
+                whileTap={{ scale: 0.95 }}
+              >
+                <motion.span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    factCheckEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                  layout
+                />
+              </motion.button>
+              
+              {/* Tooltip */}
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                Cannot fact-check personal details, but verifies historical, scientific accuracies from publicly available information
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
             {isLoadingFactCheck && (
               <RefreshCw className="h-4 w-4 animate-spin text-black" />
             )}
@@ -217,7 +225,7 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-red-700 mb-3 flex items-center">
               <AlertTriangle className="h-4 w-4 mr-2" />
-              Fact Check Issues
+              Fact Check Issues ({factCheckIssues.length})
             </h3>
             <div className="space-y-3">
               {factCheckIssues.map((issue, index) => (
@@ -227,16 +235,25 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
                   animate={{ opacity: 1, y: 0 }}
                   className={`border rounded-lg p-3 ${getConfidenceColor(issue.confidence)}`}
                 >
-                  <div className="flex items-start space-x-2">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getConfidenceIcon(issue.confidence)}
-                    </div>
+                  <div className="flex items-start space-x-3">
+                    <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
+                      issue.confidence === 'HIGH' ? 'bg-red-500' : 
+                      issue.confidence === 'MEDIUM' ? 'bg-orange-500' : 'bg-yellow-500'
+                    }`}></div>
                     <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs font-medium px-2 py-1 rounded ${
+                          issue.confidence === 'HIGH' ? 'bg-red-100 text-red-700' : 
+                          issue.confidence === 'MEDIUM' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {issue.confidence} CONFIDENCE
+                        </span>
+                      </div>
                       <p className="text-sm font-medium mb-1">"{issue.text}"</p>
-                      <p className="text-xs mb-2">{issue.issue}</p>
-                      <div className="bg-white bg-opacity-50 rounded p-2">
-                        <p className="text-xs font-medium">
-                          Suggestion: {issue.suggestion}
+                      <p className="text-xs mb-3 text-gray-600">{issue.issue}</p>
+                      <div className="bg-white bg-opacity-70 rounded p-2 border-l-2 border-gray-300">
+                        <p className="text-xs font-medium text-gray-700">
+                          💡 {issue.suggestion}
                         </p>
                       </div>
                     </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import DocumentEditor from '@/components/DocumentEditor'
 import TabbedSidebar from '@/components/TabbedSidebar'
-import { FileText, Save, Clock, Menu, X, Edit2, Check } from 'lucide-react'
+import { FileText, Save, Clock, Menu, X, Edit2, Check, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Document {
@@ -71,8 +71,12 @@ export default function DocumentPage() {
     saveDocument(title, content)
   }
 
-  // Autosave effect
+  // Autosave effect - only enable after user has started writing or changed title
   useEffect(() => {
+    // Don't autosave if it's still the default state (no content and default title)
+    if (!content && title === 'Untitled Document') return;
+    
+    // Don't autosave empty documents
     if (!title && !content) return;
     
     const timer = setTimeout(() => {
@@ -104,6 +108,18 @@ export default function DocumentPage() {
     setShowHistory(false)
   }
 
+  const deleteDocument = (docId: string) => {
+    const savedDocs = JSON.parse(localStorage.getItem('documents') || '[]')
+    const updatedDocs = savedDocs.filter((doc: Document) => doc.id !== docId)
+    localStorage.setItem('documents', JSON.stringify(updatedDocs))
+    setDocuments(updatedDocs)
+    
+    // If we're deleting the current document, create a new one
+    if (currentDocId === docId) {
+      createNewDocument()
+    }
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -116,15 +132,15 @@ export default function DocumentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* History Sidebar */}
+    <div className="min-h-screen bg-gray-50 flex relative">
+      {/* History Sidebar - Hover Overlay */}
       <AnimatePresence>
         {showHistory && (
           <motion.div
             initial={{ x: -300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
-            className="w-80 bg-white border-r border-gray-200 flex flex-col"
+            className="absolute left-0 top-0 bottom-0 w-80 bg-white border-r border-gray-200 flex flex-col shadow-xl z-20"
           >
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between mb-4">
@@ -150,18 +166,36 @@ export default function DocumentPage() {
               ) : (
                 <div className="space-y-2">
                   {documents.map((doc) => (
-                    <button
+                    <div
                       key={doc.id}
-                      onClick={() => loadDocument(doc)}
-                      className={`w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors ${
+                      className={`group relative rounded-lg border hover:bg-gray-50 transition-colors ${
                         currentDocId === doc.id ? 'border-black bg-black/5' : 'border-gray-200'
                       }`}
                     >
-                      <div className="font-medium text-gray-900 truncate">{doc.title}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {new Date(doc.updatedAt).toLocaleDateString()}
-                      </div>
-                    </button>
+                      <button
+                        onClick={() => loadDocument(doc)}
+                        className="w-full text-left p-3 pr-10"
+                      >
+                        <div className="font-medium text-gray-900 truncate">{doc.title}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {new Date(doc.updatedAt).toLocaleDateString()}
+                        </div>
+                      </button>
+                      
+                      {/* Delete Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm('Are you sure you want to delete this document?')) {
+                            deleteDocument(doc.id)
+                          }
+                        }}
+                        className="absolute top-1/2 right-2 transform -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
+                        title="Delete document"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -170,8 +204,18 @@ export default function DocumentPage() {
         )}
       </AnimatePresence>
 
+      {/* Invisible backdrop for closing sidebar */}
+      <AnimatePresence>
+        {showHistory && (
+          <div
+            className="absolute inset-0 z-10"
+            onClick={() => setShowHistory(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Main Content */}
-      <div className="flex-1">
+      <div className="flex-1 w-full">
         {/* Header */}
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

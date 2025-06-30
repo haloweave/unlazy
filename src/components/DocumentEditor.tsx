@@ -87,6 +87,13 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
     },
   })
 
+  // Update editor content when prop changes
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content || '')
+    }
+  }, [content, editor])
+
   const colors = [
     '#000000', '#374151', '#6B7280', '#9CA3AF',
     '#EF4444', '#F97316', '#F59E0B', '#EAB308',
