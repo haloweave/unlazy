@@ -17,7 +17,17 @@ interface Document {
   updatedAt: Date;
 }
 
+import { ClerkProvider } from '@clerk/nextjs'
+
 export default function DocumentPage() {
+  return (
+    <ClerkProvider>
+      <DocumentPageContent />
+    </ClerkProvider>
+  )
+}
+
+function DocumentPageContent() {
   const { user } = useUser()
   const [title, setTitle] = useState('Untitled Document')
   const [content, setContent] = useState('')
@@ -29,6 +39,7 @@ export default function DocumentPage() {
   const [currentDocId, setCurrentDocId] = useState<string | null>(null)
   const [lastSavedContent, setLastSavedContent] = useState('')
   const [lastSavedTitle, setLastSavedTitle] = useState('Untitled Document')
+  const [researchQuery, setResearchQuery] = useState<string>('')
 
   // Autosave functionality using database
   const saveDocument = useCallback(async (titleToSave: string, contentToSave: string) => {
@@ -79,7 +90,11 @@ export default function DocumentPage() {
     }
   }, [user, currentDocId])
 
-
+  // Handle research request from DocumentEditor
+  const handleResearchRequest = (text: string) => {
+    // Trigger research in the AI sidebar by setting the research query
+    setResearchQuery(text)
+  }
 
   // Autosave effect - only save when there are actual changes
   useEffect(() => {
@@ -429,13 +444,18 @@ export default function DocumentPage() {
               <DocumentEditor 
                 content={content}
                 onChange={setContent}
+                onResearchRequest={handleResearchRequest}
               />
             </div>
 
             {/* AI Copilot Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-8 h-fit">
-                <AISidebar content={content} />
+                <AISidebar 
+                  content={content} 
+                  researchQuery={researchQuery}
+                  onResearchComplete={() => setResearchQuery('')}
+                />
               </div>
             </div>
           </div>

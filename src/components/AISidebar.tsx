@@ -54,9 +54,11 @@ interface ResearchSession {
 
 interface AISidebarProps {
   content: string;
+  researchQuery?: string;
+  onResearchComplete?: () => void;
 }
 
-export default function AISidebar({ content }: AISidebarProps) {
+export default function AISidebar({ content, researchQuery, onResearchComplete }: AISidebarProps) {
   const [factCheckEnabled, setFactCheckEnabled] = useState(true);
   const [grammarCheckEnabled, setGrammarCheckEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -210,6 +212,18 @@ export default function AISidebar({ content }: AISidebarProps) {
     }
   }, [content, grammarCheckEnabled, debouncedGrammarCheck]);
 
+  // Handle incoming research queries from document editor
+  useEffect(() => {
+    if (researchQuery && researchQuery.trim()) {
+      setSearchQuery(researchQuery);
+      performSearch(researchQuery);
+      // Call the completion callback after a short delay to allow research to start
+      setTimeout(() => {
+        onResearchComplete?.();
+      }, 100);
+    }
+  }, [researchQuery, onResearchComplete]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     performSearch(searchQuery);
@@ -351,7 +365,7 @@ export default function AISidebar({ content }: AISidebarProps) {
               </div>
               
               {/* Fact Check Notification */}
-              {factCheckEnabled && factCheckIssues.length > 0 && summary && (
+              {factCheckEnabled && factCheckIssues.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -364,7 +378,7 @@ export default function AISidebar({ content }: AISidebarProps) {
               )}
 
               {/* Grammar Check Notification */}
-              {grammarCheckEnabled && grammarSpellingIssues.length > 0 && summary && (
+              {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -460,213 +474,147 @@ export default function AISidebar({ content }: AISidebarProps) {
               </motion.div>
             </motion.div>
           )}
-          {/* Fact Check Issues - Only show if no research is loading and if no research or if details are expanded */}
-          {factCheckEnabled && factCheckIssues.length > 0 && !isLoadingResearch && (!summary || showFactCheckDetails) && (
-            <div className="bg-red-50/50 border border-red-200/50 rounded-lg p-3">
-              <div className="flex items-center space-x-2 mb-3">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                <h3 className="text-sm font-medium text-red-900">
-                  {factCheckIssues.length} Issue{factCheckIssues.length === 1 ? '' : 's'} Found
-                </h3>
-                {summary && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowFactCheckDetails(false)}
-                    className="ml-auto h-auto p-1 text-xs text-red-600 hover:text-red-700"
-                  >
-                    ×
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {factCheckIssues.map((issue, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white/80 border border-red-200/30 rounded-md p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <Badge 
-                        variant={issue.confidence === 'HIGH' ? 'destructive' : 'secondary'}
-                        className="text-xs"
-                      >
-                        {issue.confidence}
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-medium text-gray-900">&ldquo;{issue.text}&rdquo;</p>
-                    <p className="text-xs text-gray-600">{issue.issue}</p>
-                    <div className="bg-blue-50/80 rounded p-2 border-l-2 border-blue-400">
-                      <p className="text-xs text-gray-700">
-                        💡 {issue.suggestion}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
+          
 
-          {/* Grammar/Spelling Issues - Only show if no research is loading and if no research or if details are expanded */}
-          {grammarCheckEnabled && grammarSpellingIssues.length > 0 && !isLoadingResearch && (!summary || showGrammarDetails) && (
-            <div className="bg-orange-50/50 border border-orange-200/50 rounded-lg p-3">
-              <div className="flex items-center space-x-2 mb-3">
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
-                <h3 className="text-sm font-medium text-orange-900">
-                  {grammarSpellingIssues.length} Grammar/Spelling Issue{grammarSpellingIssues.length === 1 ? '' : 's'} Found
-                </h3>
-                {summary && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowGrammarDetails(false)}
-                    className="ml-auto h-auto p-1 text-xs text-orange-600 hover:text-orange-700"
-                  >
-                    ×
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {grammarSpellingIssues.map((issue, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white/80 border border-orange-200/30 rounded-md p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <Badge 
-                        variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
-                        className="text-xs"
+          {/* Main Content Area */}
+          <div className="space-y-4">
+            {/* Research Summary */}
+            {summary && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gray-50/50 rounded-lg p-4 space-y-4"
+              >
+                    {/* Summary with Citations */}
+                    <div className="prose prose-sm max-w-none text-gray-900 [&>*]:text-gray-900">
+                      <ReactMarkdown 
+                        components={{
+                          p: ({children}) => <p className="text-gray-900 leading-relaxed mb-3">{children}</p>,
+                          strong: ({children}) => <strong className="text-gray-900 font-semibold">{children}</strong>,
+                          em: ({children}) => <em className="text-gray-700">{children}</em>,
+                          ul: ({children}) => <ul className="text-gray-900 list-disc pl-4 space-y-1">{children}</ul>,
+                          ol: ({children}) => <ol className="text-gray-900 list-decimal pl-4 space-y-1">{children}</ol>,
+                          li: ({children}) => <li className="text-gray-900">{children}</li>
+                        }}
                       >
-                        {issue.type} {issue.severity}
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-medium text-gray-900">&ldquo;{issue.text}&rdquo;</p>
-                    <p className="text-xs text-gray-600">{issue.issue}</p>
-                    <div className="bg-blue-50/80 rounded p-2 border-l-2 border-blue-400">
-                      <p className="text-xs text-gray-700">
-                        💡 {issue.suggestion}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Research Summary */}
-          {summary && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gray-50/50 rounded-lg p-4 space-y-4"
-            >
-                  {/* Summary with Citations */}
-                  <div className="prose prose-sm max-w-none text-gray-900 [&>*]:text-gray-900">
-                    <ReactMarkdown 
-                      components={{
-                        p: ({children}) => <p className="text-gray-900 leading-relaxed mb-3">{children}</p>,
-                        strong: ({children}) => <strong className="text-gray-900 font-semibold">{children}</strong>,
-                        em: ({children}) => <em className="text-gray-700">{children}</em>,
-                        ul: ({children}) => <ul className="text-gray-900 list-disc pl-4 space-y-1">{children}</ul>,
-                        ol: ({children}) => <ol className="text-gray-900 list-decimal pl-4 space-y-1">{children}</ol>,
-                        li: ({children}) => <li className="text-gray-900">{children}</li>
-                      }}
-                    >
-                      {summary}
-                    </ReactMarkdown>
-                    
-                    
-                    {/* Inline Citations */}
-                    {sources.length > 0 && (
-                      <div className="inline-flex flex-wrap gap-1 ml-1">
-                        {sources.map((source, index) => (
-                          <button
-                            key={index}
-                            onClick={() => window.open(source.url, '_blank')}
-                            className="relative group inline-flex items-center"
-                            title={source.title}
-                          >
-                            <span className="bg-gray-200/60 hover:bg-gray-300/80 text-gray-600 text-xs px-1.5 py-0.5 rounded-full transition-colors font-medium">
-                              {index + 1}
-                            </span>
-                            
-                            {/* Tooltip on hover */}
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 max-w-xs whitespace-normal shadow-lg">
-                                <div className="font-medium">{source.title}</div>
-                                {source.author && (
-                                  <div className="text-gray-300 mt-1">{source.author}</div>
-                                )}
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                        {summary}
+                      </ReactMarkdown>
+                      
+                      
+                      {/* Inline Citations */}
+                      {sources.length > 0 && (
+                        <div className="inline-flex flex-wrap gap-1 ml-1">
+                          {sources.map((source, index) => (
+                            <button
+                              key={index}
+                              onClick={() => window.open(source.url, '_blank')}
+                              className="relative group inline-flex items-center"
+                              title={source.title}
+                            >
+                              <span className="bg-gray-200/60 hover:bg-gray-300/80 text-gray-600 text-xs px-1.5 py-0.5 rounded-full transition-colors font-medium">
+                                {index + 1}
+                              </span>
+                              
+                              {/* Tooltip on hover */}
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 max-w-xs whitespace-normal shadow-lg">
+                                  <div className="font-medium">{source.title}</div>
+                                  {source.author && (
+                                    <div className="text-gray-300 mt-1">{source.author}</div>
+                                  )}
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                </div>
                               </div>
-                            </div>
-                          </button>
-                        ))}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Follow-up Questions */}
+                    {followUpQuestions.length > 0 && (
+                      <div className="space-y-2 pt-4">
+                        <div className="grid grid-cols-1 gap-2">
+                          {followUpQuestions.map((question, index) => (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                setSearchQuery(question.replace('?', ''));
+                                performSearch(question.replace('?', ''));
+                              }}
+                              className="w-full text-left p-3 text-sm text-gray-700 bg-gray-50/80 hover:bg-gray-100/80 rounded-lg transition-colors border-0 leading-relaxed"
+                            >
+                              {question}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
-                  </div>
+              </motion.div>
+            )}
 
-                  {/* Follow-up Questions */}
-                  {followUpQuestions.length > 0 && (
-                    <div className="space-y-2 pt-4">
-                      <div className="grid grid-cols-1 gap-2">
-                        {followUpQuestions.map((question, index) => (
-                          <button
-                            key={index}
-                            onClick={() => {
-                              setSearchQuery(question.replace('?', ''));
-                              performSearch(question.replace('?', ''));
-                            }}
-                            className="w-full text-left p-3 text-sm text-gray-700 bg-gray-50/80 hover:bg-gray-100/80 rounded-lg transition-colors border-0 leading-relaxed"
-                          >
-                            {question}
-                          </button>
-                        ))}
-                      </div>
+
+            {/* Issue Section */}
+            {(grammarSpellingIssues.length > 0 || factCheckIssues.length > 0) && !isLoadingResearch && (
+              <div className="border-t border-gray-200 pt-3 space-y-3">
+                {/* Compact Grammar/Spelling Issue List */}
+                {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Grammar & Spelling</h3>
+                    <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
+                      {grammarSpellingIssues.map((issue, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-gray-50 hover:bg-gray-100 rounded-md p-2 space-y-1.5 cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <Badge 
+                              variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
+                              className="text-xs font-medium"
+                            >
+                              {issue.type}
+                            </Badge>
+                            <p className="text-xs text-gray-700 font-medium truncate ml-2">&ldquo;{issue.text}&rdquo;</p>
+                          </div>
+                          <p className="text-xs text-blue-600 pl-2">→ {issue.suggestion}</p>
+                        </motion.div>
+                      ))}
                     </div>
-                  )}
-            </motion.div>
-          )}
+                  </div>
+                )}
 
-
-          {/* Grammar Check Loading State */}
-          {isLoadingGrammarCheck && !isLoadingResearch && !isLoadingFactCheck && (
-            <motion.div 
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-orange-50/80 border border-orange-200 rounded-lg p-3 text-center"
-            >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="inline-block"
-              >
-                <RefreshCw className="h-4 w-4 text-orange-600" />
-              </motion.div>
-              <p className="text-xs text-orange-800 mt-2">Checking grammar...</p>
-            </motion.div>
-          )}
-
-          {/* Fact Check Loading State */}
-          {isLoadingFactCheck && !isLoadingResearch && !isLoadingGrammarCheck && (
-            <motion.div 
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-blue-50/80 border border-blue-200 rounded-lg p-3 text-center"
-            >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="inline-block"
-              >
-                <RefreshCw className="h-4 w-4 text-blue-600" />
-              </motion.div>
-              <p className="text-xs text-blue-800 mt-2">Fact-checking...</p>
-            </motion.div>
-          )}
+                {/* Compact Fact-Check Issue List */}
+                {factCheckEnabled && factCheckIssues.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Fact-Check</h3>
+                    <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
+                      {factCheckIssues.map((issue, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-red-50 hover:bg-red-100 rounded-md p-2 space-y-1.5 cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <Badge 
+                              variant={issue.confidence === 'HIGH' ? 'destructive' : 'secondary'}
+                              className="text-xs font-medium"
+                            >
+                              {issue.confidence}
+                            </Badge>
+                            <p className="text-xs text-gray-700 font-medium truncate ml-2">&ldquo;{issue.text}&rdquo;</p>
+                          </div>
+                          <p className="text-xs text-blue-600 pl-2">→ {issue.suggestion}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Success State - No Issues Detected */}
           {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.length >= 100 && !summary && (

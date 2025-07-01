@@ -11,6 +11,8 @@ An AI tool that encourages cognitive engagement before revealing answers. Think 
 - **Real-time Chat**: Fluid conversation interface with animations
 - **Topic Detection**: Automatically categorizes your questions and interests
 
+
+
 ## 🛠️ Tech Stack
 
 - **Frontend**: Next.js 14 (App Router) + TypeScript

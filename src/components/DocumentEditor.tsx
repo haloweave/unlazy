@@ -24,23 +24,28 @@ import {
   Palette,
   Type,
   Highlighter,
-  ChevronDown
+  ChevronDown,
+  Search,
+  Plus
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 
 interface DocumentEditorProps {
   content?: string
   onChange?: (content: string) => void
+  onResearchRequest?: (text: string) => void
 }
 
-export default function DocumentEditor({ content = '', onChange }: DocumentEditorProps) {
+export default function DocumentEditor({ content = '', onChange, onResearchRequest }: DocumentEditorProps) {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showHighlightPicker, setShowHighlightPicker] = useState(false)
   const [showFontPicker, setShowFontPicker] = useState(false)
   const [showAlignPicker, setShowAlignPicker] = useState(false)
+  const [researchIcon, setResearchIcon] = useState({ show: false, x: 0, y: 0, text: '' })
   const toolbarRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -58,6 +63,54 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  // Handle mouse events for research icon
+  useEffect(() => {
+    if (!editorRef.current) return
+
+    function handleMouseMove(event: MouseEvent) {
+      const target = event.target as HTMLElement
+      if (!target.closest('.ProseMirror')) return
+
+      // Get the text content of the current paragraph or sentence
+      let textElement = target
+      while (textElement && !['P', 'H1', 'H2', 'H3', 'LI'].includes(textElement.tagName)) {
+        textElement = textElement.parentElement as HTMLElement
+      }
+
+      if (textElement && textElement.textContent && textElement.textContent.trim()) {
+        const rect = textElement.getBoundingClientRect()
+        const editorRect = editorRef.current!.getBoundingClientRect()
+        
+        setResearchIcon({
+          show: true,
+          x: rect.left - editorRect.left - 40, // Position to the left of the text
+          y: rect.top - editorRect.top + (rect.height / 2), // Center vertically
+          text: textElement.textContent.trim()
+        })
+      }
+    }
+
+    function handleMouseLeave() {
+      setResearchIcon({ show: false, x: 0, y: 0, text: '' })
+    }
+
+    const editorElement = editorRef.current
+    editorElement.addEventListener('mousemove', handleMouseMove)
+    editorElement.addEventListener('mouseleave', handleMouseLeave)
+
+    return () => {
+      editorElement.removeEventListener('mousemove', handleMouseMove)
+      editorElement.removeEventListener('mouseleave', handleMouseLeave)
+    }
+  }, [])
+
+  const handleResearchClick = () => {
+    if (researchIcon.text && onResearchRequest) {
+      onResearchRequest(researchIcon.text)
+      setResearchIcon({ show: false, x: 0, y: 0, text: '' })
+    }
+  }
   
   const editor = useEditor({
     extensions: [
@@ -378,11 +431,38 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
       </div>
 
       {/* Editor */}
-      <div className="bg-white min-h-[600px]">
+      <div ref={editorRef} className="bg-white min-h-[600px] relative">
         <EditorContent 
           editor={editor} 
           className="document-editor"
         />
+        
+        {/* Floating Research Icon */}
+        <AnimatePresence>
+          {researchIcon.show && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+              className="absolute z-50 pointer-events-auto"
+              style={{
+                left: `${researchIcon.x}px`,
+                top: `${researchIcon.y - 12}px`, // Center the icon vertically
+              }}
+            >
+              <motion.button
+                onClick={handleResearchClick}
+                className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors duration-200"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                title={`Research: "${researchIcon.text.substring(0, 50)}${researchIcon.text.length > 50 ? '...' : ''}"`}
+              >
+                <Plus className="h-3 w-3" />
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Custom CSS for proper list rendering */}
