@@ -3,8 +3,8 @@
 import { useUser } from "@clerk/nextjs";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { CheckCircle, Search, Zap, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Cycling typing animation with backspace effect
 function CyclingTypewriter({ 
@@ -102,19 +102,10 @@ export default function HomePage() {
       <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-white"></div>
 
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-8">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-4xl mx-auto text-center px-4">
           {/* Hero Section - Centered */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-16"
-          >
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-4xl md:text-6xl font-light text-gray-900 mb-8 leading-tight whitespace-nowrap"
-            >
+          <div className="mb-8 sm:mb-16">
+            <div className="text-3xl sm:text-4xl md:text-6xl font-light text-gray-900 mb-6 sm:mb-8 leading-tight">
               <CyclingTypewriter 
                 baseText="AI copilot for Writing "
                 cyclingWords={["Articles", "Essays", "Research", "Stories", "Blogs", "Content", "Papers", "Reports"]}
@@ -122,70 +113,84 @@ export default function HomePage() {
                 deleteSpeed={80}
                 pauseTime={2000}
               />
-            </motion.div>
+            </div>
 
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2 }}
-              className="text-xl text-gray-600 mb-12 font-light"
-            >
-              Stops you being lazy
-            </motion.p>
+            <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-12 font-light">
+              {/* Stops you being lazy */}
+              Write thoughtfully while staying insightful and accurate.
+            </p>
 
             {/* CTA Button */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2.5 }}
-              className="mb-16"
-            >
-              <motion.button
+            <div className="mb-8 sm:mb-16">
+              <Button
                 onClick={handleStartWriting}
                 disabled={!isLoaded}
-                className="group inline-flex h-12 items-center justify-center rounded-full bg-black px-8 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-black/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black disabled:pointer-events-none disabled:opacity-50"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                size="lg"
+                className="group h-12 sm:h-14 px-12 sm:px-16 text-sm sm:text-base font-medium rounded-full bg-black hover:bg-black/90 transition-all duration-200"
               >
-                <span>{user ? 'Continue Writing' : 'Start Writing'}</span>
+                <span>{user ? 'Continue Writing' : 'Write Smarter for free'}</span>
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </motion.button>
-            </motion.div>
+              </Button>
+            </div>
 
             {/* Condensed Message */}
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 3 }}
-              className="text-lg text-gray-600 leading-relaxed max-w-3xl mx-auto mb-12"
-            >
+            <p className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-3xl mx-auto mb-8 sm:mb-12 px-4">
+              According to MIT, people are accumulating concerning amounts of cognitive debt because they offload writing to AI. AI is best used for fact-checking and fast, source-based research. Unlazy helps you write without losing your voice. Fact-check your sentences as you write, and research topics from real sources instantly.
+{/* 
               While AI makes writers lazy with content generators, we empower your thinking with real-time fact-checking, 
-              research assistance, and cognitive prompts. Perfect for students, journalists, and critical thinkers.
-            </motion.p>
+              research assistance, and cognitive prompts. Perfect for students, journalists, and critical thinkers. */}
+            </p>
 
             {/* Minimal Features */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 3.3 }}
-              className="flex justify-center items-center space-x-8 text-gray-500"
-            >
+            <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-8 text-gray-500">
               <span className="flex items-center text-sm">
-                <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                <CheckCircle className="h-4 w-4 text-green-600 mr-2 flex-shrink-0" />
                 Fact-checking
               </span>
               <span className="flex items-center text-sm">
-                <Search className="h-4 w-4 text-blue-600 mr-2" />
+                <Search className="h-4 w-4 text-blue-600 mr-2 flex-shrink-0" />
                 Research
               </span>
               <span className="flex items-center text-sm">
-                <Zap className="h-4 w-4 text-yellow-600 mr-2" />
+                <Zap className="h-4 w-4 text-yellow-600 mr-2 flex-shrink-0" />
                 Thinking prompts
               </span>
-            </motion.div>
-          </motion.div>
+            </div>
+
+            {/* Idea TBD Widget */}
+            <div className="mt-12 sm:mt-16">
+              <a
+                href="https://ideatbd.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-shadow shadow-sm hover:shadow-md"
+              >
+                <span role="img" aria-label="lightbulb">💡</span>
+                <div className="text-sm text-center">
+                  <div><strong>Built by Idea TBD</strong></div>
+                  <div className="text-xs">The Best Builder Community</div>
+                </div>
+              </a>
+            </div>
+
+          </div>
         </div>
       </div>
+      
+      {/* Footer */}
+      <footer className="relative z-10 py-6 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <a
+            href="https://haloweave.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Powered by <strong>Haloweave</strong> - Your AI product partner
+          </a>
+        </div>
+      </footer>
+      
     </div>
   );
 }

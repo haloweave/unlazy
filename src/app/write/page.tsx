@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import DocumentEditor from '@/components/DocumentEditor'
-import TabbedSidebar from '@/components/TabbedSidebar'
-import { FileText, Save, Clock, Menu, X, Edit2, Check, Trash2 } from 'lucide-react'
+import AISidebar from '@/components/AISidebar'
+import { FileText, Save, Clock, Menu, X, Edit2, Check, Trash2, Download } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,40 +27,51 @@ export default function DocumentPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [documents, setDocuments] = useState<Document[]>([])
   const [currentDocId, setCurrentDocId] = useState<string | null>(null)
+  const [lastSavedContent, setLastSavedContent] = useState('')
+  const [lastSavedTitle, setLastSavedTitle] = useState('Untitled Document')
 
-  // Autosave functionality
+  // Autosave functionality using database
   const saveDocument = useCallback(async (titleToSave: string, contentToSave: string) => {
     if (!user) return;
     
     setIsSaving(true)
     try {
-      // TODO: Replace with actual database save
-      // For now, simulate save and store in localStorage
-      const doc: Document = {
-        id: currentDocId || Date.now().toString(),
-        title: titleToSave || 'Untitled Document',
-        content: contentToSave,
-        createdAt: currentDocId ? documents.find(d => d.id === currentDocId)?.createdAt || new Date() : new Date(),
-        updatedAt: new Date()
+      const response = await fetch('/api/documents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: currentDocId,
+          title: titleToSave || 'Untitled Document',
+          content: contentToSave,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save document')
       }
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      // Save to localStorage (replace with actual database)
-      const savedDocs = JSON.parse(localStorage.getItem('documents') || '[]')
-      const existingIndex = savedDocs.findIndex((d: Document) => d.id === doc.id)
+      const { document: savedDoc } = await response.json()
       
-      if (existingIndex >= 0) {
-        savedDocs[existingIndex] = doc
-      } else {
-        savedDocs.unshift(doc)
-        setCurrentDocId(doc.id)
+      setDocuments(prev => {
+        const existingIndex = prev.findIndex(d => d.id === savedDoc.id)
+        if (existingIndex >= 0) {
+          const updated = [...prev]
+          updated[existingIndex] = savedDoc
+          return updated
+        } else {
+          return [savedDoc, ...prev]
+        }
+      })
+      
+      if (!currentDocId) {
+        setCurrentDocId(savedDoc.id)
       }
       
-      localStorage.setItem('documents', JSON.stringify(savedDocs))
-      setDocuments(savedDocs)
       setLastSaved(new Date())
+      setLastSavedContent(contentToSave)
+      setLastSavedTitle(titleToSave)
     } catch (error) {
       console.error('Save failed:', error)
     } finally {
@@ -73,7 +84,8 @@ export default function DocumentPage() {
     saveDocument(title, content)
   }
 
-  // Autosave effect - only enable after user has started writing or changed title
+
+  // Autosave effect - only save when there are actual changes
   useEffect(() => {
     // Don't autosave if it's still the default state (no content and default title)
     if (!content && title === 'Untitled Document') return;
@@ -81,18 +93,31 @@ export default function DocumentPage() {
     // Don't autosave empty documents
     if (!title && !content) return;
     
+    // Don't autosave if nothing has changed
+    if (content === lastSavedContent && title === lastSavedTitle) return;
+    
     const timer = setTimeout(() => {
       saveDocument(title, content)
-    }, 2000) // Autosave after 2 seconds of inactivity
+    }, 3000) // Autosave after 3 seconds of inactivity
 
     return () => clearTimeout(timer)
-  }, [title, content, saveDocument])
+  }, [title, content, saveDocument, lastSavedContent, lastSavedTitle])
 
   // Load documents on mount
   useEffect(() => {
     if (user) {
-      const savedDocs = JSON.parse(localStorage.getItem('documents') || '[]')
-      setDocuments(savedDocs)
+      const loadDocuments = async () => {
+        try {
+          const response = await fetch('/api/documents')
+          if (response.ok) {
+            const { documents: docs } = await response.json()
+            setDocuments(docs)
+          }
+        } catch (error) {
+          console.error('Failed to load documents:', error)
+        }
+      }
+      loadDocuments()
     }
   }, [user])
 
@@ -100,6 +125,8 @@ export default function DocumentPage() {
     setTitle(doc.title)
     setContent(doc.content)
     setCurrentDocId(doc.id)
+    setLastSavedContent(doc.content)
+    setLastSavedTitle(doc.title)
     setShowHistory(false)
   }
 
@@ -107,18 +134,104 @@ export default function DocumentPage() {
     setTitle('Untitled Document')
     setContent('')
     setCurrentDocId(null)
+    setLastSavedContent('')
+    setLastSavedTitle('Untitled Document')
     setShowHistory(false)
   }
 
-  const deleteDocument = (docId: string) => {
-    const savedDocs = JSON.parse(localStorage.getItem('documents') || '[]')
-    const updatedDocs = savedDocs.filter((doc: Document) => doc.id !== docId)
-    localStorage.setItem('documents', JSON.stringify(updatedDocs))
-    setDocuments(updatedDocs)
-    
-    // If we're deleting the current document, create a new one
-    if (currentDocId === docId) {
-      createNewDocument()
+  const deleteDocument = async (docId: string) => {
+    try {
+      const response = await fetch(`/api/documents?id=${docId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete document')
+      }
+
+      setDocuments(prev => prev.filter(doc => doc.id !== docId))
+      
+      if (currentDocId === docId) {
+        createNewDocument()
+      }
+    } catch (error) {
+      console.error('Failed to delete document:', error)
+    }
+  }
+
+  // PDF Export functionality
+  const handleExportPDF = async () => {
+    try {
+      const html2canvasPro = (await import('html2canvas-pro')).default
+      const jsPDF = (await import('jspdf')).default
+      
+      // Create a temporary container for the PDF content
+      const element = document.createElement('div')
+      element.style.padding = '40px'
+      element.style.fontFamily = 'Georgia, serif'
+      element.style.lineHeight = '1.6'
+      element.style.color = '#333'
+      element.style.maxWidth = '800px'
+      element.style.margin = '0 auto'
+      element.style.backgroundColor = '#ffffff'
+      
+      // Add title
+      const titleElement = document.createElement('h1')
+      titleElement.textContent = title === 'Untitled Document' ? 'Document' : title
+      titleElement.style.fontSize = '24px'
+      titleElement.style.fontWeight = 'bold'
+      titleElement.style.marginBottom = '30px'
+      titleElement.style.textAlign = 'center'
+      titleElement.style.borderBottom = '2px solid #333'
+      titleElement.style.paddingBottom = '10px'
+      titleElement.style.color = '#333'
+      element.appendChild(titleElement)
+      
+      // Add content - convert HTML to text preserving structure
+      const contentElement = document.createElement('div')
+      contentElement.innerHTML = content || '<p>No content available</p>'
+      contentElement.style.fontSize = '12px'
+      contentElement.style.lineHeight = '1.8'
+      contentElement.style.color = '#333'
+      element.appendChild(contentElement)
+      
+      // Add to DOM temporarily
+      document.body.appendChild(element)
+      
+      // Use html2canvas-pro directly
+      const canvas = await html2canvasPro(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      })
+      
+      // Create PDF with jsPDF
+      const imgData = canvas.toDataURL('image/jpeg', 0.98)
+      const pdf = new jsPDF('portrait', 'mm', 'a4')
+      const imgWidth = 210
+      const pageHeight = 295
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      
+      let position = 0
+      
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+      
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+      
+      pdf.save(`${title === 'Untitled Document' ? 'document' : title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`)
+      
+      // Clean up
+      document.body.removeChild(element)
+    } catch (error) {
+      console.error('PDF export failed:', error)
     }
   }
 
@@ -158,9 +271,18 @@ export default function DocumentPage() {
               </div>
               <Button
                 onClick={createNewDocument}
-                className="w-full"
+                className="w-full mb-2"
               >
                 New Document
+              </Button>
+              <Button
+                onClick={handleExportPDF}
+                variant="outline"
+                className="w-full flex items-center justify-center"
+                disabled={!content}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export to PDF
               </Button>
             </div>
             
@@ -189,10 +311,10 @@ export default function DocumentPage() {
                       
                       {/* Delete Button */}
                       <Button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation()
                           if (confirm('Are you sure you want to delete this document?')) {
-                            deleteDocument(doc.id)
+                            await deleteDocument(doc.id)
                           }
                         }}
                         variant="ghost"
@@ -224,7 +346,7 @@ export default function DocumentPage() {
       {/* Main Content */}
       <div className="flex-1 w-full">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200">
+        <div>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center space-x-4">
@@ -237,14 +359,12 @@ export default function DocumentPage() {
                   <Menu className="h-5 w-5 text-gray-600" />
                 </Button>
                 
-                <FileText className="h-6 w-6 text-black" />
-                
                 {/* Editable Title */}
                 {isEditingTitle ? (
                   <div className="flex items-center space-x-2">
                     <Input
                       type="text"
-                      value={title}
+                      value={title === 'Untitled Document' ? '' : title}
                       onChange={(e) => setTitle(e.target.value)}
                       onBlur={() => setIsEditingTitle(false)}
                       onKeyDown={(e) => {
@@ -252,7 +372,7 @@ export default function DocumentPage() {
                           setIsEditingTitle(false)
                         }
                       }}
-                      className="text-lg font-semibold text-gray-900 h-auto px-2 py-1"
+                      className="text-lg font-medium text-gray-900 h-auto px-2 py-1 border-0 bg-transparent focus:ring-0 focus:border-0"
                       autoFocus
                     />
                     <Button
@@ -266,8 +386,14 @@ export default function DocumentPage() {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 group">
-                    <h1 className="text-lg font-semibold text-gray-900">
-                      {title}
+                    <h1 className={`text-lg font-medium cursor-pointer ${
+                      title === 'Untitled Document' 
+                        ? 'text-gray-400 italic' 
+                        : 'text-gray-900'
+                    }`}
+                    onClick={() => setIsEditingTitle(true)}
+                    >
+                      {title === 'Untitled Document' ? 'Enter title here' : title}
                     </h1>
                     <Button
                       onClick={() => setIsEditingTitle(true)}
@@ -283,31 +409,17 @@ export default function DocumentPage() {
               
               <div className="flex items-center space-x-4">
                 {isSaving && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Clock className="h-4 w-4 mr-1 animate-spin" />
+                  <div className="flex items-center text-xs text-gray-400">
+                    <Clock className="h-3 w-3 mr-1 animate-spin" />
                     Saving...
                   </div>
                 )}
                 
                 {lastSaved && !isSaving && (
-                  <span className="text-sm text-gray-500">
-                    Last saved: {lastSaved.toLocaleTimeString()}
+                  <span className="text-xs text-gray-400">
+                    Saved
                   </span>
                 )}
-                
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="inline-flex items-center"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
-                  </Button>
-                </motion.div>
               </div>
             </div>
           </div>
@@ -327,7 +439,7 @@ export default function DocumentPage() {
             {/* AI Copilot Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-8 h-fit">
-                <TabbedSidebar content={content} />
+                <AISidebar content={content} />
               </div>
             </div>
           </div>
