@@ -1,7 +1,7 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db/connection'
-import { documents, users } from '@/lib/db/schema'
+import { documents } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { ensureUserExists } from '@/lib/db/users'
 

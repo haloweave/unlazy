@@ -28,6 +28,15 @@ interface FactCheckIssue {
   importance?: 'critical' | 'moderate' | 'minor';
 }
 
+interface GrammarSpellingIssue {
+  text: string;
+  type: 'grammar' | 'spelling';
+  issue: string;
+  suggestion: string;
+  severity: 'error' | 'warning' | 'suggestion';
+  position?: { start: number; end: number };
+}
+
 interface ResearchSource {
   title: string;
   url: string;
@@ -49,14 +58,18 @@ interface AISidebarProps {
 
 export default function AISidebar({ content }: AISidebarProps) {
   const [factCheckEnabled, setFactCheckEnabled] = useState(true);
+  const [grammarCheckEnabled, setGrammarCheckEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [summary, setSummary] = useState('');
   const [sources, setSources] = useState<ResearchSource[]>([]);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const [factCheckIssues, setFactCheckIssues] = useState<FactCheckIssue[]>([]);
+  const [grammarSpellingIssues, setGrammarSpellingIssues] = useState<GrammarSpellingIssue[]>([]);
   const [isLoadingResearch, setIsLoadingResearch] = useState(false);
   const [isLoadingFactCheck, setIsLoadingFactCheck] = useState(false);
+  const [isLoadingGrammarCheck, setIsLoadingGrammarCheck] = useState(false);
   const [showFactCheckDetails, setShowFactCheckDetails] = useState(false);
+  const [showGrammarDetails, setShowGrammarDetails] = useState(false);
   const [researchHistory, setResearchHistory] = useState<ResearchSession[]>([]);
   const [currentSessionIndex, setCurrentSessionIndex] = useState<number>(-1);
 
@@ -140,10 +153,43 @@ export default function AISidebar({ content }: AISidebarProps) {
     }
   }, [factCheckEnabled, setFactCheckIssues, setIsLoadingFactCheck]);
 
+  // Grammar and spelling checking functionality
+  const performGrammarCheck = useCallback(async (text: string) => {
+    if (!text || text.length < 10 || !grammarCheckEnabled) {
+      setGrammarSpellingIssues([]);
+      return;
+    }
+
+    setIsLoadingGrammarCheck(true);
+    try {
+      const response = await fetch('/api/grammar-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text }),
+      });
+
+      if (!response.ok) throw new Error('Grammar check request failed');
+
+      const data = await response.json();
+      setGrammarSpellingIssues(data.issues || []);
+    } catch (error) {
+      console.error('Grammar check error:', error);
+      setGrammarSpellingIssues([]);
+    } finally {
+      setIsLoadingGrammarCheck(false);
+    }
+  }, [grammarCheckEnabled, setGrammarSpellingIssues, setIsLoadingGrammarCheck]);
+
   // Debounced version of the fact check function
   const debouncedFactCheck = useMemo(
     () => debounce(performFactCheck, 2000),
     [performFactCheck]
+  );
+
+  // Debounced version of the grammar check function
+  const debouncedGrammarCheck = useMemo(
+    () => debounce(performGrammarCheck, 1500),
+    [performGrammarCheck]
   );
 
   // Auto fact-check when enabled
@@ -154,6 +200,15 @@ export default function AISidebar({ content }: AISidebarProps) {
       setFactCheckIssues([]);
     }
   }, [content, factCheckEnabled, debouncedFactCheck]);
+
+  // Auto grammar-check when enabled
+  useEffect(() => {
+    if (grammarCheckEnabled && content) {
+      debouncedGrammarCheck(content);
+    } else {
+      setGrammarSpellingIssues([]);
+    }
+  }, [content, grammarCheckEnabled, debouncedGrammarCheck]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,6 +308,16 @@ export default function AISidebar({ content }: AISidebarProps) {
                       />
                     </div>
                   </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs text-gray-900" asChild>
+                    <div className="flex items-center justify-between w-full">
+                      <span>Grammar Check</span>
+                      <Switch
+                        checked={grammarCheckEnabled}
+                        onCheckedChange={setGrammarCheckEnabled}
+                        className="data-[state=checked]:bg-gray-900"
+                      />
+                    </div>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-gray-200" />
                   <DropdownMenuItem 
                     className="text-xs text-red-600 hover:bg-red-50"
@@ -275,11 +340,13 @@ export default function AISidebar({ content }: AISidebarProps) {
                   ? 'Researching...'
                   : isLoadingFactCheck
                     ? 'Fact-checking...'
-                    : summary 
-                      ? 'Research complete'
-                      : factCheckEnabled && content.length >= 100
-                        ? 'Document verified'
-                        : ''
+                    : isLoadingGrammarCheck
+                      ? 'Checking grammar...'
+                      : summary 
+                        ? 'Research complete'
+                        : factCheckEnabled && content.length >= 100
+                          ? 'Document verified'
+                          : ''
                 }
               </div>
               
@@ -295,8 +362,21 @@ export default function AISidebar({ content }: AISidebarProps) {
                   <span>{factCheckIssues.length}</span>
                 </Button>
               )}
+
+              {/* Grammar Check Notification */}
+              {grammarCheckEnabled && grammarSpellingIssues.length > 0 && summary && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowGrammarDetails(!showGrammarDetails)}
+                  className="h-auto p-1 flex items-center space-x-1 text-xs text-orange-600 hover:text-orange-700"
+                >
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                  <span>{grammarSpellingIssues.length}</span>
+                </Button>
+              )}
               
-              {isLoadingFactCheck && (
+              {(isLoadingFactCheck || isLoadingGrammarCheck) && (
                 <RefreshCw className="h-3 w-3 animate-spin text-gray-600" />
               )}
             </div>
@@ -306,8 +386,82 @@ export default function AISidebar({ content }: AISidebarProps) {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto space-y-3">
-          {/* Fact Check Issues - Only show if no research or if details are expanded */}
-          {factCheckEnabled && factCheckIssues.length > 0 && (!summary || showFactCheckDetails) && (
+          {/* Empty State - Your Writing Co-pilot */}
+          {!summary && !isLoadingResearch && !isLoadingFactCheck && !isLoadingGrammarCheck && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && content.length < 100 && (
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                <Search className="h-6 w-6 text-gray-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Your writing co-pilot</h3>
+                <p className="text-xs text-gray-500">Research, fact-check, and get insights as you write</p>
+              </div>
+            </div>
+          )}
+
+          {/* Research Loading Animation */}
+          {isLoadingResearch && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center justify-center py-12 space-y-4"
+            >
+              <div className="relative w-20 h-20">
+                {/* Animated particles */}
+                {[...Array(12)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-1.5 h-1.5 bg-black rounded-full"
+                    style={{
+                      top: '50%',
+                      left: '50%',
+                      transformOrigin: '0 0',
+                    }}
+                    animate={{
+                      rotate: [0, 360],
+                      scale: [0.8, 1.2, 0.8],
+                      opacity: [0.3, 1, 0.3],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      delay: i * 0.1,
+                      ease: "easeInOut",
+                    }}
+                    initial={{
+                      x: Math.cos((i * 30) * Math.PI / 180) * 30,
+                      y: Math.sin((i * 30) * Math.PI / 180) * 30,
+                    }}
+                  />
+                ))}
+                {/* Center pulsing dot */}
+                <motion.div
+                  className="absolute top-1/2 left-1/2 w-2 h-2 bg-black rounded-full"
+                  style={{ transform: 'translate(-50%, -50%)' }}
+                  animate={{
+                    scale: [1, 1.5, 1],
+                    opacity: [0.7, 1, 0.7],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+              </div>
+              <motion.div 
+                className="text-center"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <p className="text-sm font-medium text-gray-900">Researching...</p>
+                <p className="text-xs text-gray-500">Finding the best sources for you</p>
+              </motion.div>
+            </motion.div>
+          )}
+          {/* Fact Check Issues - Only show if no research is loading and if no research or if details are expanded */}
+          {factCheckEnabled && factCheckIssues.length > 0 && !isLoadingResearch && (!summary || showFactCheckDetails) && (
             <div className="bg-red-50/50 border border-red-200/50 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-3">
                 <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -339,6 +493,54 @@ export default function AISidebar({ content }: AISidebarProps) {
                         className="text-xs"
                       >
                         {issue.confidence}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">&ldquo;{issue.text}&rdquo;</p>
+                    <p className="text-xs text-gray-600">{issue.issue}</p>
+                    <div className="bg-blue-50/80 rounded p-2 border-l-2 border-blue-400">
+                      <p className="text-xs text-gray-700">
+                        💡 {issue.suggestion}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Grammar/Spelling Issues - Only show if no research is loading and if no research or if details are expanded */}
+          {grammarCheckEnabled && grammarSpellingIssues.length > 0 && !isLoadingResearch && (!summary || showGrammarDetails) && (
+            <div className="bg-orange-50/50 border border-orange-200/50 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-3">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <h3 className="text-sm font-medium text-orange-900">
+                  {grammarSpellingIssues.length} Grammar/Spelling Issue{grammarSpellingIssues.length === 1 ? '' : 's'} Found
+                </h3>
+                {summary && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowGrammarDetails(false)}
+                    className="ml-auto h-auto p-1 text-xs text-orange-600 hover:text-orange-700"
+                  >
+                    ×
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {grammarSpellingIssues.map((issue, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/80 border border-orange-200/30 rounded-md p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <Badge 
+                        variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
+                        className="text-xs"
+                      >
+                        {issue.type} {issue.severity}
                       </Badge>
                     </div>
                     <p className="text-sm font-medium text-gray-900">&ldquo;{issue.text}&rdquo;</p>
@@ -430,20 +632,52 @@ export default function AISidebar({ content }: AISidebarProps) {
           )}
 
 
-          {/* Fact Check Success */}
-          {factCheckEnabled && factCheckIssues.length === 0 && !isLoadingFactCheck && content.length >= 100 && !summary && (
-            <div className="bg-green-50/80 border border-green-200 rounded-lg p-4 text-center">
-              <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-600" />
-              <p className="text-xs font-medium text-green-800">No issues detected</p>
-            </div>
+          {/* Grammar Check Loading State */}
+          {isLoadingGrammarCheck && !isLoadingResearch && !isLoadingFactCheck && (
+            <motion.div 
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-orange-50/80 border border-orange-200 rounded-lg p-3 text-center"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="inline-block"
+              >
+                <RefreshCw className="h-4 w-4 text-orange-600" />
+              </motion.div>
+              <p className="text-xs text-orange-800 mt-2">Checking grammar...</p>
+            </motion.div>
           )}
 
-          {/* Loading States */}
-          {isLoadingFactCheck && (
-            <div className="bg-blue-50/80 border border-blue-200 rounded-lg p-4 text-center">
-              <RefreshCw className="h-4 w-4 mx-auto mb-2 animate-spin text-blue-600" />
-              <p className="text-xs text-blue-800">Fact-checking...</p>
-            </div>
+          {/* Fact Check Loading State */}
+          {isLoadingFactCheck && !isLoadingResearch && !isLoadingGrammarCheck && (
+            <motion.div 
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-blue-50/80 border border-blue-200 rounded-lg p-3 text-center"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="inline-block"
+              >
+                <RefreshCw className="h-4 w-4 text-blue-600" />
+              </motion.div>
+              <p className="text-xs text-blue-800 mt-2">Fact-checking...</p>
+            </motion.div>
+          )}
+
+          {/* Success State - No Issues Detected */}
+          {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.length >= 100 && !summary && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-green-50/80 border border-green-200 rounded-lg p-3 text-center"
+            >
+              <CheckCircle className="h-4 w-4 mx-auto mb-1 text-green-600" />
+              <p className="text-xs font-medium text-green-800">No issues detected</p>
+            </motion.div>
           )}
         </div>
         

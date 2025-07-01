@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import DocumentEditor from '@/components/DocumentEditor'
 import AISidebar from '@/components/AISidebar'
-import { FileText, Save, Clock, Menu, X, Edit2, Check, Trash2, Download } from 'lucide-react'
+import { FileText, Clock, Menu, X, Edit2, Check, Trash2, Download } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -77,12 +77,8 @@ export default function DocumentPage() {
     } finally {
       setIsSaving(false)
     }
-  }, [user, currentDocId, documents])
+  }, [user, currentDocId])
 
-  // Manual save
-  const handleSave = () => {
-    saveDocument(title, content)
-  }
 
 
   // Autosave effect - only save when there are actual changes

@@ -2,7 +2,6 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { CheckCircle, Search, Zap, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -82,18 +81,7 @@ function CyclingTypewriter({
 }
 
 export default function HomePage() {
-  const { user, isLoaded } = useUser();
-  const router = useRouter();
-
-  const handleStartWriting = () => {
-    if (user) {
-      // User is logged in, redirect to /write
-      router.push('/write');
-    } else {
-      // User is not logged in, redirect to login page
-      router.push('/sign-in');
-    }
-  };
+  const { user } = useUser();
 
 
   return (
@@ -123,13 +111,14 @@ export default function HomePage() {
             {/* CTA Button */}
             <div className="mb-8 sm:mb-16">
               <Button
-                onClick={handleStartWriting}
-                disabled={!isLoaded}
+                asChild
                 size="lg"
-                className="group h-12 sm:h-14 px-12 sm:px-16 text-sm sm:text-base font-medium rounded-full bg-black hover:bg-black/90 transition-all duration-200"
+                className="group h-12 sm:h-14 px-16 sm:px-24 text-sm sm:text-base font-medium rounded-lg bg-black hover:bg-black/90 transition-all duration-200"
               >
-                <span>{user ? 'Continue Writing' : 'Write Smarter for free'}</span>
-                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                <a href={user ? '/write' : '/sign-in'}>
+                  <span>{user ? 'Continue Writing' : 'Write Smarter for free'}</span>
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </a>
               </Button>
             </div>
 
