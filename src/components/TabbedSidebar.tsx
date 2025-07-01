@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Search, Shield, AlertTriangle, CheckCircle, RefreshCw, ExternalLink, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Shield, AlertTriangle, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 import ReactMarkdown from 'react-markdown';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 interface FactCheckIssue {
   text: string;
@@ -31,7 +36,6 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
   const [summary, setSummary] = useState('');
   const [sources, setSources] = useState<ResearchSource[]>([]);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
-  const [showSources, setShowSources] = useState(false);
   const [factCheckIssues, setFactCheckIssues] = useState<FactCheckIssue[]>([]);
   const [isLoadingResearch, setIsLoadingResearch] = useState(false);
   const [isLoadingFactCheck, setIsLoadingFactCheck] = useState(false);
@@ -59,7 +63,6 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
       setSources(data.sources || []);
       setFollowUpQuestions(data.followUpQuestions || []);
       console.log('Received follow-up questions:', data.followUpQuestions); // Debug log
-      setShowSources(false);
     } catch (error) {
       console.error('Research error:', error);
       setSummary('');
@@ -122,239 +125,224 @@ export default function TabbedSidebar({ content }: TabbedSidebarProps) {
     performSearch(searchQuery);
   };
 
-  const getConfidenceColor = (confidence: string) => {
-    switch (confidence) {
-      case 'HIGH': return 'text-red-700 bg-red-50 border-red-200';
-      case 'MEDIUM': return 'text-orange-700 bg-orange-50 border-orange-200';
-      case 'LOW': return 'text-yellow-700 bg-yellow-50 border-yellow-200';
-      default: return 'text-gray-700 bg-gray-50 border-gray-200';
-    }
-  };
 
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col max-h-[80vh] overflow-hidden">
-      {/* Compact Header */}
-      <div className="p-2 bg-gray-50 border-b border-gray-200">
-        {/* Search Input at Top */}
-        <form onSubmit={handleSearch} className="flex space-x-1 mb-2">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Ask anything..."
-            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-xs text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-black focus:border-transparent"
-          />
-          <motion.button
-            type="submit"
-            disabled={isLoadingResearch || !searchQuery.trim()}
-            className="bg-black text-white p-1.5 rounded hover:bg-black/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {isLoadingResearch ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Search className="h-3 w-3" />
-            )}
-          </motion.button>
-        </form>
-
-        {/* Fact Check Toggle */}
-        <div className="flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            {factCheckEnabled && factCheckIssues.length > 0 
-              ? `${factCheckIssues.length} issues found`
-              : summary 
-                ? 'Research ready'
-                : 'Ask me anything'
-            }
-          </div>
-          
-          <div className="flex items-center space-x-1">
-            <Shield className="h-3 w-3 text-gray-500" />
-            <div className="relative group">
-              <motion.button
-                onClick={() => setFactCheckEnabled(!factCheckEnabled)}
-                className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${
-                  factCheckEnabled ? 'bg-black' : 'bg-gray-200'
-                }`}
-                whileTap={{ scale: 0.95 }}
+    <Card className="h-[704px] overflow-hidden bg-white text-gray-900 border-gray-200 shadow-lg">
+      <CardContent className="h-full flex flex-col p-3 space-y-3">
+        {/* Compact Header - Search & Controls */}
+        <div className="space-y-2">
+          {/* Search Input */}
+          <form onSubmit={handleSearch} className="flex space-x-2">
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Ask anything..."
+              className="flex-1"
+            />
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                type="submit"
+                disabled={isLoadingResearch || !searchQuery.trim()}
+                size="sm"
+                className="px-3"
               >
-                <motion.span
-                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                    factCheckEnabled ? 'translate-x-4' : 'translate-x-0.5'
-                  }`}
-                  layout
-                />
-              </motion.button>
+                {isLoadingResearch ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </Button>
+            </motion.div>
+          </form>
+
+          {/* Status & Fact Check Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-gray-600">
+              {isLoadingResearch 
+                ? 'Researching...'
+                : isLoadingFactCheck
+                  ? 'Fact-checking...'
+                  : factCheckEnabled && factCheckIssues.length > 0 
+                    ? `${factCheckIssues.length} issue${factCheckIssues.length === 1 ? '' : 's'} found`
+                    : summary 
+                      ? 'Research complete'
+                      : factCheckEnabled && content.length >= 100
+                        ? 'Document verified'
+                        : 'AI Copilot ready'
+              }
             </div>
-            {isLoadingFactCheck && (
-              <RefreshCw className="h-3 w-3 animate-spin text-black" />
-            )}
+            
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="fact-check-toggle" className="flex items-center space-x-2 text-xs cursor-pointer">
+                <Shield className="h-3 w-3 text-gray-500" />
+                <span className="sr-only">Fact Check</span>
+              </Label>
+              <Switch
+                id="fact-check-toggle"
+                checked={factCheckEnabled}
+                onCheckedChange={setFactCheckEnabled}
+                className="data-[state=checked]:bg-gray-900"
+              />
+              {isLoadingFactCheck && (
+                <RefreshCw className="h-3 w-3 animate-spin text-gray-900" />
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {/* Fact Check Issues (when enabled and found) */}
-        {factCheckEnabled && factCheckIssues.length > 0 && (
-          <div>
-            <h3 className="text-xs font-semibold text-red-700 mb-2 flex items-center">
-              <AlertTriangle className="h-3 w-3 mr-1" />
-              Issues ({factCheckIssues.length})
-            </h3>
-            <div className="space-y-2">
-              {factCheckIssues.map((issue, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`border rounded p-2 ${getConfidenceColor(issue.confidence)}`}
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
-                        issue.confidence === 'HIGH' ? 'bg-red-100 text-red-700' : 
-                        issue.confidence === 'MEDIUM' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {issue.confidence}
-                      </span>
-                    </div>
-                    <p className="text-xs font-medium">&ldquo;{issue.text}&rdquo;</p>
-                    <p className="text-xs text-gray-600">{issue.issue}</p>
-                    <div className="bg-white bg-opacity-70 rounded p-1.5 border-l-2 border-gray-300">
-                      <p className="text-xs text-gray-700">
-                        💡 {issue.suggestion}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Compact Research Summary */}
-        {summary && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-2"
-          >
-            {/* Summary Content */}
-            <div className="bg-gray-50 rounded p-2 border border-gray-200">
-              <div className="text-xs text-gray-700 leading-relaxed">
-                <ReactMarkdown>{summary}</ReactMarkdown>
-              </div>
-            </div>
-
-            {/* Follow-up Questions */}
-            {followUpQuestions.length > 0 && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-medium text-gray-700">Related</h4>
-                {followUpQuestions.map((question, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setSearchQuery(question.replace('?', ''));
-                      performSearch(question.replace('?', ''));
-                    }}
-                    className="w-full text-left p-2 text-xs text-gray-700 bg-white border border-gray-200 rounded hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                  >
-                    {question}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Compact Sources */}
-            {sources.length > 0 && (
-              <div className="border-t border-gray-200 pt-2">
-                <button
-                  onClick={() => setShowSources(!showSources)}
-                  className="flex items-center space-x-1 text-xs font-medium text-gray-700 hover:text-gray-900 mb-1"
-                >
-                  <span>Sources ({sources.length})</span>
-                  {showSources ? (
-                    <ChevronUp className="h-3 w-3" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
-                </button>
-
-                {showSources && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-1"
-                  >
-                    {sources.map((source, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start space-x-1 p-1.5 bg-white rounded border border-gray-100 hover:border-gray-200 transition-colors"
-                      >
-                        <span className="text-xs font-medium text-gray-500 flex-shrink-0">
-                          [{index + 1}]
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto space-y-3">
+          {/* Fact Check Issues */}
+          {factCheckEnabled && factCheckIssues.length > 0 && (
+            <Card className="bg-white border-gray-200">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <h3 className="text-sm font-semibold text-destructive">
+                    Issues ({factCheckIssues.length})
+                  </h3>
+                </div>
+                <div className="space-y-3">
+                  {factCheckIssues.map((issue, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="border rounded-md p-3 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                          issue.confidence === 'HIGH' ? 'bg-destructive/10 text-destructive' : 
+                          issue.confidence === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' : 'bg-yellow-50 text-yellow-700'
+                        }`}>
+                          {issue.confidence}
                         </span>
-                        <div className="flex-1 min-w-0">
-                          <a
-                            href={source.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium line-clamp-2"
-                          >
-                            {source.title}
-                          </a>
-                          {source.author && (
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {source.author}
-                            </p>
-                          )}
-                        </div>
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
                       </div>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
+                      <p className="text-sm font-medium">&ldquo;{issue.text}&rdquo;</p>
+                      <p className="text-xs text-muted-foreground">{issue.issue}</p>
+                      <div className="bg-muted rounded p-2 border-l-2 border-primary">
+                        <p className="text-xs">
+                          💡 {issue.suggestion}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Compact Empty State */}
-        {!summary && (!factCheckEnabled || factCheckIssues.length === 0) && !isLoadingResearch && !isLoadingFactCheck && (
-          <div className="text-center text-gray-500 py-6">
-            <Search className="h-6 w-6 mx-auto mb-2 text-gray-300" />
-            <p className="text-xs">Ask me anything or start writing</p>
-          </div>
-        )}
+          {/* Research Summary */}
+          {summary && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="bg-white border-gray-200">
+                <CardContent className="p-4 space-y-4">
+                  {/* Summary with Citations */}
+                  <div className="prose prose-sm max-w-none text-gray-900 [&>*]:text-gray-900">
+                    <ReactMarkdown 
+                      components={{
+                        p: ({children}) => <p className="text-gray-900 leading-relaxed mb-3">{children}</p>,
+                        strong: ({children}) => <strong className="text-gray-900 font-semibold">{children}</strong>,
+                        em: ({children}) => <em className="text-gray-700">{children}</em>,
+                        ul: ({children}) => <ul className="text-gray-900 list-disc pl-4 space-y-1">{children}</ul>,
+                        ol: ({children}) => <ol className="text-gray-900 list-decimal pl-4 space-y-1">{children}</ol>,
+                        li: ({children}) => <li className="text-gray-900">{children}</li>
+                      }}
+                    >
+                      {summary}
+                    </ReactMarkdown>
+                    
+                    {/* Inline Citations */}
+                    {sources.length > 0 && (
+                      <div className="inline-flex flex-wrap gap-1 ml-1">
+                        {sources.map((source, index) => (
+                          <button
+                            key={index}
+                            onClick={() => window.open(source.url, '_blank')}
+                            className="relative group inline-flex items-center"
+                            title={source.title}
+                          >
+                            <span className="bg-gray-200/60 hover:bg-gray-300/80 text-gray-600 text-xs px-1.5 py-0.5 rounded-full transition-colors font-medium">
+                              {index + 1}
+                            </span>
+                            
+                            {/* Tooltip on hover */}
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 max-w-xs whitespace-normal shadow-lg">
+                                <div className="font-medium">{source.title}</div>
+                                {source.author && (
+                                  <div className="text-gray-300 mt-1">{source.author}</div>
+                                )}
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-        {/* Fact Check Success */}
-        {factCheckEnabled && factCheckIssues.length === 0 && !isLoadingFactCheck && content.length >= 100 && (
-          <div className="text-center text-green-600 py-4">
-            <CheckCircle className="h-5 w-5 mx-auto mb-2" />
-            <p className="text-xs font-medium">No issues detected</p>
-          </div>
-        )}
+                  {/* Follow-up Questions */}
+                  {followUpQuestions.length > 0 && (
+                    <div className="space-y-2 pt-4">
+                      <div className="grid grid-cols-1 gap-2">
+                        {followUpQuestions.map((question, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              setSearchQuery(question.replace('?', ''));
+                              performSearch(question.replace('?', ''));
+                            }}
+                            className="w-full text-left p-3 text-sm text-gray-700 bg-gray-50/80 hover:bg-gray-100/80 rounded-lg transition-colors border-0 leading-relaxed"
+                          >
+                            {question}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-        {/* Loading States */}
-        {isLoadingFactCheck && (
-          <div className="text-center text-gray-500 py-4">
-            <RefreshCw className="h-4 w-4 mx-auto mb-2 animate-spin text-black" />
-            <p className="text-xs">Fact-checking...</p>
-          </div>
-        )}
-      </div>
-    </div>
+          {/* Empty State */}
+          {!summary && (!factCheckEnabled || factCheckIssues.length === 0) && !isLoadingResearch && !isLoadingFactCheck && (
+            <Card className="bg-gray-50 border-gray-200">
+              <CardContent className="p-6 text-center">
+                <Search className="h-8 w-8 mx-auto mb-3 text-gray-400" />
+                <h4 className="text-sm font-medium text-gray-900 mb-1">AI Copilot Ready</h4>
+                <p className="text-xs text-gray-600">Ask questions or start writing to get assistance</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Fact Check Success */}
+          {factCheckEnabled && factCheckIssues.length === 0 && !isLoadingFactCheck && content.length >= 100 && (
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-4 text-center">
+                <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-600" />
+                <p className="text-xs font-medium text-green-800">No issues detected</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Loading States */}
+          {isLoadingFactCheck && (
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-4 text-center">
+                <RefreshCw className="h-4 w-4 mx-auto mb-2 animate-spin text-blue-600" />
+                <p className="text-xs text-blue-800">Fact-checking...</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

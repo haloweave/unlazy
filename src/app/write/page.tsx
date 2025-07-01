@@ -6,6 +6,8 @@ import DocumentEditor from '@/components/DocumentEditor'
 import TabbedSidebar from '@/components/TabbedSidebar'
 import { FileText, Save, Clock, Menu, X, Edit2, Check, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface Document {
   id: string;
@@ -145,19 +147,21 @@ export default function DocumentPage() {
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Documents</h2>
-                <button
+                <Button
                   onClick={() => setShowHistory(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
                 >
                   <X className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
-              <button
+              <Button
                 onClick={createNewDocument}
-                className="w-full bg-black text-white px-4 py-2 rounded-lg hover:bg-black/90 transition-colors"
+                className="w-full"
               >
                 New Document
-              </button>
+              </Button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4">
@@ -172,29 +176,32 @@ export default function DocumentPage() {
                         currentDocId === doc.id ? 'border-black bg-black/5' : 'border-gray-200'
                       }`}
                     >
-                      <button
+                      <Button
                         onClick={() => loadDocument(doc)}
-                        className="w-full text-left p-3 pr-10"
+                        variant="ghost"
+                        className="w-full justify-start text-left p-3 pr-10 h-auto"
                       >
                         <div className="font-medium text-gray-900 truncate">{doc.title}</div>
                         <div className="text-xs text-gray-500 mt-1">
                           {new Date(doc.updatedAt).toLocaleDateString()}
                         </div>
-                      </button>
+                      </Button>
                       
                       {/* Delete Button */}
-                      <button
+                      <Button
                         onClick={(e) => {
                           e.stopPropagation()
                           if (confirm('Are you sure you want to delete this document?')) {
                             deleteDocument(doc.id)
                           }
                         }}
-                        className="absolute top-1/2 right-2 transform -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1/2 right-2 transform -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
                         title="Delete document"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -221,19 +228,21 @@ export default function DocumentPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center space-x-4">
-                <button
+                <Button
                   onClick={() => setShowHistory(true)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
                 >
                   <Menu className="h-5 w-5 text-gray-600" />
-                </button>
+                </Button>
                 
                 <FileText className="h-6 w-6 text-black" />
                 
                 {/* Editable Title */}
                 {isEditingTitle ? (
                   <div className="flex items-center space-x-2">
-                    <input
+                    <Input
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
@@ -243,27 +252,31 @@ export default function DocumentPage() {
                           setIsEditingTitle(false)
                         }
                       }}
-                      className="text-lg font-semibold text-gray-900 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-black"
+                      className="text-lg font-semibold text-gray-900 h-auto px-2 py-1"
                       autoFocus
                     />
-                    <button
+                    <Button
                       onClick={() => setIsEditingTitle(false)}
-                      className="p-1 hover:bg-gray-100 rounded"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
                     >
                       <Check className="h-4 w-4 text-green-600" />
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 group">
                     <h1 className="text-lg font-semibold text-gray-900">
                       {title}
                     </h1>
-                    <button
+                    <Button
                       onClick={() => setIsEditingTitle(true)}
-                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-gray-100 rounded transition-opacity"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Edit2 className="h-4 w-4 text-gray-500" />
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -282,16 +295,19 @@ export default function DocumentPage() {
                   </span>
                 )}
                 
-                <motion.button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50"
+                <motion.div
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </motion.button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="inline-flex items-center"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                </motion.div>
               </div>
             </div>
           </div>
@@ -310,7 +326,7 @@ export default function DocumentPage() {
 
             {/* AI Copilot Sidebar */}
             <div className="lg:col-span-1">
-              <div className="sticky top-8">
+              <div className="sticky top-8 h-fit">
                 <TabbedSidebar content={content} />
               </div>
             </div>

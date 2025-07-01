@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useState, useEffect, useRef } from 'react'
+import { Button } from '@/components/ui/button'
 
 interface DocumentEditorProps {
   content?: string
@@ -126,19 +127,20 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
     children: React.ReactNode 
     className?: string
   }) => (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      className={`p-2 rounded-lg transition-colors ${
-        isActive 
-          ? 'bg-black/10 text-black' 
-          : 'text-gray-600 hover:bg-gray-100'
-      } ${className}`}
+    <motion.div
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
     >
-      {children}
-    </motion.button>
+      <Button
+        type="button"
+        onClick={onClick}
+        variant={isActive ? "secondary" : "ghost"}
+        size="icon"
+        className={`h-8 w-8 ${className}`}
+      >
+        {children}
+      </Button>
+    </motion.div>
   )
 
   const DropdownButton = ({ 
@@ -150,20 +152,20 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
     onClick: () => void
     children: React.ReactNode 
   }) => (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center space-x-1 p-2 rounded-lg transition-colors ${
-        isOpen 
-          ? 'bg-black/10 text-black' 
-          : 'text-gray-600 hover:bg-gray-100'
-      }`}
+    <motion.div
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
     >
-      {children}
-      <ChevronDown className="h-3 w-3" />
-    </motion.button>
+      <Button
+        type="button"
+        onClick={onClick}
+        variant={isOpen ? "secondary" : "ghost"}
+        className="flex items-center space-x-1 h-8"
+      >
+        {children}
+        <ChevronDown className="h-3 w-3" />
+      </Button>
+    </motion.div>
   )
 
   return (
@@ -184,17 +186,18 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
             {showFontPicker && (
               <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48">
                 {fonts.map(font => (
-                  <button
+                  <Button
                     key={font}
                     onClick={() => {
                       editor.chain().focus().setFontFamily(font).run()
                       setShowFontPicker(false)
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-gray-100 transition-colors"
+                    variant="ghost"
+                    className="w-full justify-start text-left px-3 py-2 h-auto"
                     style={{ fontFamily: font }}
                   >
                     {font}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -240,13 +243,15 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
               <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3">
                 <div className="grid grid-cols-4 gap-2 w-32">
                   {colors.map(color => (
-                    <button
+                    <Button
                       key={color}
                       onClick={() => {
                         editor.chain().focus().setColor(color).run()
                         setShowColorPicker(false)
                       }}
-                      className="w-6 h-6 rounded border-2 border-gray-200 hover:border-gray-400"
+                      variant="ghost"
+                      size="icon"
+                      className="w-6 h-6 rounded border-2 border-gray-200 hover:border-gray-400 p-0"
                       style={{ backgroundColor: color }}
                     />
                   ))}
@@ -268,23 +273,27 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
             {showHighlightPicker && (
               <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3">
                 <div className="grid grid-cols-4 gap-2 w-32">
-                  <button
+                  <Button
                     onClick={() => {
                       editor.chain().focus().unsetHighlight().run()
                       setShowHighlightPicker(false)
                     }}
-                    className="w-6 h-6 rounded border-2 border-gray-200 hover:border-gray-400 bg-white flex items-center justify-center text-xs"
+                    variant="ghost"
+                    size="icon"
+                    className="w-6 h-6 rounded border-2 border-gray-200 hover:border-gray-400 bg-white flex items-center justify-center text-xs p-0"
                   >
                     ×
-                  </button>
+                  </Button>
                   {highlightColors.map(color => (
-                    <button
+                    <Button
                       key={color}
                       onClick={() => {
                         editor.chain().focus().setHighlight({ color }).run()
                         setShowHighlightPicker(false)
                       }}
-                      className="w-6 h-6 rounded border-2 border-gray-200 hover:border-gray-400"
+                      variant="ghost"
+                      size="icon"
+                      className="w-6 h-6 rounded border-2 border-gray-200 hover:border-gray-400 p-0"
                       style={{ backgroundColor: color }}
                     />
                   ))}
@@ -331,19 +340,18 @@ export default function DocumentEditor({ content = '', onChange }: DocumentEdito
                     { icon: AlignRight, label: 'Right', align: 'right' },
                     { icon: AlignJustify, label: 'Justify', align: 'justify' }
                   ].map(({ icon: Icon, label, align }) => (
-                    <button
+                    <Button
                       key={align}
                       onClick={() => {
                         editor.chain().focus().setTextAlign(align).run()
                         setShowAlignPicker(false)
                       }}
-                      className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                        editor.isActive({ textAlign: align }) ? 'bg-black/10 text-black' : 'hover:bg-gray-100'
-                      }`}
+                      variant={editor.isActive({ textAlign: align }) ? "secondary" : "ghost"}
+                      className="w-full justify-start flex items-center space-x-2 px-3 py-2 h-auto text-sm"
                     >
                       <Icon className="h-4 w-4" />
                       <span>{label}</span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
