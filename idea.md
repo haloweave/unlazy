@@ -4,6 +4,7 @@
 
 ---
 
+
 ## **The Problem We're Tackling**
 
 With the rise of generative AI, there is growing concern that writers—especially students, journalists, researchers, and creatives—are becoming overly reliant on AI to do the thinking for them. While large language models (LLMs) are powerful, uncritical dependence on them is contributing to a kind of *cognitive outsourcing*, leading to diminished skills in critical thinking, fact retention, and original ideation. Writers may get faster results, but at the cost of ownership, depth, and learning.
