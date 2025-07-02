@@ -73,8 +73,8 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
   const [isLoadingResearch, setIsLoadingResearch] = useState(false);
   const [isLoadingFactCheck, setIsLoadingFactCheck] = useState(false);
   const [isLoadingGrammarCheck, setIsLoadingGrammarCheck] = useState(false);
-  const [showFactCheckDetails, setShowFactCheckDetails] = useState(false);
-  const [showGrammarDetails, setShowGrammarDetails] = useState(false);
+  const [showFactCheckDetails, setShowFactCheckDetails] = useState(true);
+  const [showGrammarDetails, setShowGrammarDetails] = useState(true);
   const [researchHistory, setResearchHistory] = useState<ResearchSession[]>([]);
   const [currentSessionIndex, setCurrentSessionIndex] = useState<number>(-1);
   const [lastCheckedContent, setLastCheckedContent] = useState('');
@@ -418,6 +418,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                     size="sm"
                     onClick={() => setShowFactCheckDetails(!showFactCheckDetails)}
                     className="h-auto p-1 flex items-center space-x-1 text-xs text-red-600 hover:text-red-700"
+                    title={`Fact check errors: ${factCheckIssues.length}`}
                   >
                     <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                     <span>{factCheckIssues.length}</span>
@@ -431,6 +432,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                     size="sm"
                     onClick={() => setShowGrammarDetails(!showGrammarDetails)}
                     className="h-auto p-1 flex items-center space-x-1 text-xs text-orange-600 hover:text-orange-700"
+                    title={`Grammar/spelling errors: ${grammarSpellingIssues.length}`}
                   >
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     <span>{grammarSpellingIssues.length}</span>
@@ -537,79 +539,67 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           
 
           {/* Main Content Area */}
-          <div className="space-y-4">
-            {/* Issue Section - Show when details are expanded or when no research */}
-            {(grammarSpellingIssues.length > 0 || factCheckIssues.length > 0) && !isLoadingResearch && (showGrammarDetails || showFactCheckDetails || !summary) && (
-              <div className="border-t border-gray-200 pt-2 space-y-2">
-                {/* Compact Grammar/Spelling Issue List */}
-                {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (showGrammarDetails || !summary) && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-1">Spelling</h3>
-                    <div className="space-y-2 px-2 max-h-64 overflow-y-auto">
-                      {grammarSpellingIssues.map((issue, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="bg-gray-50 hover:bg-gray-100 rounded-md p-3 space-y-2 cursor-pointer"
+          <div className="flex-1 flex flex-col space-y-4">
+            {/* Combined Issues Section - Unified scrollable list */}
+            {(grammarSpellingIssues.length > 0 || factCheckIssues.length > 0) && !isLoadingResearch && (
+              <div className={`${!summary ? 'flex-1 flex flex-col' : ''} border-t border-gray-200 pt-2`}>
+                <div className={`space-y-2 px-2 overflow-y-auto ${!summary ? 'flex-1' : 'max-h-64'}`}>
+                  {/* Grammar/Spelling Issues */}
+                  {grammarCheckEnabled && showGrammarDetails && grammarSpellingIssues.map((issue, index) => (
+                    <motion.div
+                      key={`grammar-${index}`}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-gray-50 hover:bg-gray-100 rounded-md p-3 space-y-2 cursor-pointer"
+                    >
+                      <div className="flex items-start space-x-2">
+                        <Badge 
+                          variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
+                          className="text-xs font-medium flex-shrink-0"
                         >
-                          <div className="flex items-start space-x-2">
-                            <Badge 
-                              variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
-                              className="text-xs font-medium flex-shrink-0"
-                            >
-                              {issue.type}
-                            </Badge>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center space-x-1">
-                                <span className="text-xs text-gray-700 font-medium">&ldquo;</span>
-                                <span className="text-xs text-red-600 font-medium underline decoration-wavy decoration-red-400">{issue.text}</span>
-                                <span className="text-xs text-gray-700 font-medium">&rdquo;</span>
-                                {issue.position && issue.position.start !== issue.position.end && (
-                                  <span className="text-xs text-gray-400">@{issue.position.start}</span>
-                                )}
-                              </div>
-                              <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
-                              {issue.issue && issue.issue !== 'Issue detected' && (
-                                <p className="text-xs text-gray-500 mt-1 italic">{issue.issue}</p>
-                              )}
-                            </div>
+                          {issue.type}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs text-gray-700 font-medium">&ldquo;</span>
+                            <span className="text-xs text-red-600 font-medium underline decoration-wavy decoration-red-400">{issue.text}</span>
+                            <span className="text-xs text-gray-700 font-medium">&rdquo;</span>
+                            {issue.position && issue.position.start !== issue.position.end && (
+                              <span className="text-xs text-gray-400">@{issue.position.start}</span>
+                            )}
                           </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Compact Fact-Check Issue List */}
-                {factCheckEnabled && factCheckIssues.length > 0 && (showFactCheckDetails || !summary) && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-1">Fact-Check</h3>
-                    <div className="space-y-2 px-2 max-h-64 overflow-y-auto">
-                      {factCheckIssues.map((issue, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="bg-red-50 hover:bg-red-100 rounded-md p-3 space-y-2 cursor-pointer"
+                          <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
+                          {issue.issue && issue.issue !== 'Issue detected' && (
+                            <p className="text-xs text-gray-500 mt-1 italic">{issue.issue}</p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                  
+                  {/* Fact-Check Issues */}
+                  {factCheckEnabled && showFactCheckDetails && factCheckIssues.map((issue, index) => (
+                    <motion.div
+                      key={`factcheck-${index}`}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-red-50 hover:bg-red-100 rounded-md p-3 space-y-2 cursor-pointer"
+                    >
+                      <div className="flex items-start gap-2">
+                        <Badge 
+                          variant={issue.confidence === 'HIGH' ? 'destructive' : 'secondary'}
+                          className="text-xs font-medium flex-shrink-0"
                         >
-                          <div className="flex items-start gap-2">
-                            <Badge 
-                              variant={issue.confidence === 'HIGH' ? 'destructive' : 'secondary'}
-                              className="text-xs font-medium flex-shrink-0"
-                            >
-                              {issue.confidence}
-                            </Badge>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-700 font-medium line-clamp-2">&ldquo;{issue.text}&rdquo;</p>
-                              <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                          {issue.confidence}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-700 font-medium line-clamp-2">&ldquo;{issue.text}&rdquo;</p>
+                          <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
             )}
 
