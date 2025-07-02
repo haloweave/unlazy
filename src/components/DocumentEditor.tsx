@@ -164,7 +164,9 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     },
     onSelectionUpdate: ({ editor }) => {
       // Debounce selection updates to avoid expensive coordinate calculations
-      clearTimeout(selectionTimeout.current)
+      if (selectionTimeout.current) {
+        clearTimeout(selectionTimeout.current)
+      }
       selectionTimeout.current = setTimeout(() => {
         const { from, to } = editor.state.selection
         const selectedText = editor.state.doc.textBetween(from, to)

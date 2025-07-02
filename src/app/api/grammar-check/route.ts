@@ -5,7 +5,6 @@ import retextSpell from 'retext-spell';
 import retextRepeatedWords from 'retext-repeated-words';
 import retextPassive from 'retext-passive';
 import retextReadability from 'retext-readability';
-import dictionary from 'dictionary-en';
 
 interface GrammarSpellingIssue {
   text: string;
@@ -74,10 +73,9 @@ export async function POST(request: NextRequest) {
       return suggestions.slice(0, 3).join(', ');
     };
 
-    // Process with multiple retext plugins
+    // Process with multiple retext plugins (excluding spell check for now due to build issues)
     const processor = retext()
       .use(retextEnglish)
-      .use(retextSpell, { dictionary })
       .use(retextRepeatedWords)
       .use(retextPassive)
       .use(retextReadability, { age: 16 }); // Target reading level
@@ -101,10 +99,18 @@ export async function POST(request: NextRequest) {
       }
 
       // Extract text from the message
-      const messageAny = message as any;
+      const messageAny = message as {
+        actual?: string;
+        note?: string;
+        expected?: string[];
+        position?: {
+          start?: { offset?: number };
+          end?: { offset?: number };
+        };
+      };
       let text = '';
       let suggestion = '';
-      let position = { start: 0, end: 0 };
+      const position = { start: 0, end: 0 };
 
       if (messageAny.actual) {
         text = messageAny.actual;
@@ -122,8 +128,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Calculate position in the text
-      if (text && (message as any).position) {
-        const pos = (message as any).position;
+      if (text && messageAny.position) {
+        const pos = messageAny.position;
         if (pos.start && pos.start.offset !== undefined) {
           position.start = pos.start.offset;
         }

@@ -84,7 +84,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
   } | null>(null);
 
   // Research functionality
-  const performSearch = async (query: string) => {
+  const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) return;
 
     setIsLoadingResearch(true);
@@ -145,7 +145,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
     } finally {
       setIsLoadingResearch(false);
     }
-  };
+  }, [summary, searchQuery, sources, followUpQuestions, content]);
 
   // Fact checking functionality
   const performFactCheck = useCallback(async (text: string) => {
@@ -269,7 +269,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
         onResearchComplete?.();
       }, 100);
     }
-  }, [researchQuery, onResearchComplete]);
+  }, [researchQuery, onResearchComplete, performSearch]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -533,16 +533,28 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
                           animate={{ opacity: 1, y: 0 }}
                           className="bg-gray-50 hover:bg-gray-100 rounded-md p-2 space-y-1.5 cursor-pointer"
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-start space-x-2">
                             <Badge 
                               variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
-                              className="text-xs font-medium"
+                              className="text-xs font-medium flex-shrink-0"
                             >
                               {issue.type}
                             </Badge>
-                            <p className="text-xs text-gray-700 font-medium truncate ml-2">&ldquo;{issue.text}&rdquo;</p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-1">
+                                <span className="text-xs text-gray-700 font-medium">&ldquo;</span>
+                                <span className="text-xs text-red-600 font-medium underline decoration-wavy decoration-red-400">{issue.text}</span>
+                                <span className="text-xs text-gray-700 font-medium">&rdquo;</span>
+                                {issue.position && issue.position.start !== issue.position.end && (
+                                  <span className="text-xs text-gray-400">@{issue.position.start}</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
+                              {issue.issue && issue.issue !== 'Issue detected' && (
+                                <p className="text-xs text-gray-500 mt-1 italic">{issue.issue}</p>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-xs text-blue-600 pl-2">→ {issue.suggestion}</p>
                         </motion.div>
                       ))}
                     </div>

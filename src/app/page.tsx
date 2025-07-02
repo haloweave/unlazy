@@ -91,7 +91,6 @@ function AnimatedHeading() {
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
-    let interval: NodeJS.Timeout;
 
     const typeSpeed = 100; // Speed for typing the comma
     const deleteSpeed = 80; // Speed for deleting the em-dash
@@ -119,7 +118,6 @@ function AnimatedHeading() {
 
     return () => {
       clearTimeout(timeout);
-      clearInterval(interval);
     };
   }, [displayedText, phase, fullTextInitial, fullTextFinal, hyphenIndex, commaIndex]);
 
