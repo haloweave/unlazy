@@ -18,12 +18,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Define schemas for different modes
-    const realtimeSchema = z.array(z.object({
-      text: z.string().describe('Exact text from document'),
-      issue: z.string().describe('Brief description of the potential error'),
-      confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level'),
-      suggestion: z.string().describe('Brief correction or verification needed')
-    }));
+    const realtimeSchema = z.object({
+      issues: z.array(z.object({
+        text: z.string().describe('Exact text from document'),
+        issue: z.string().describe('Brief description of the potential error'),
+        confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level'),
+        suggestion: z.string().describe('Brief correction or verification needed')
+      })).describe('Array of potential issues, empty if no issues found')
+    });
 
     const detailedSchema = z.object({
       summary: z.string().describe('Overall assessment'),
@@ -59,7 +61,7 @@ IMPORTANT RULES:
 4. Provide confidence levels: HIGH (definitely wrong), MEDIUM (likely wrong/questionable), LOW (needs verification)
 5. Be concise - this is real-time analysis
 
-If no issues found, return empty array.`
+If no issues found, return empty issues array.`
             },
             {
               role: "user",
@@ -69,7 +71,7 @@ If no issues found, return empty array.`
           maxTokens,
           temperature: 0.1,
         });
-        result = realtimeResult;
+        result = realtimeResult.issues;
         break;
 
       case 'detailed':
