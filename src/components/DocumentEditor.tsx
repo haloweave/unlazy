@@ -47,13 +47,24 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
   const [selectedTextResearch, setSelectedTextResearch] = useState({ show: false, x: 0, y: 0, text: '' })
   const toolbarRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  const fontPickerRef = useRef<HTMLDivElement>(null)
+  const colorPickerRef = useRef<HTMLDivElement>(null)
+  const highlightPickerRef = useRef<HTMLDivElement>(null)
+  const alignPickerRef = useRef<HTMLDivElement>(null)
   const selectionTimeout = useRef<NodeJS.Timeout | null>(null)
   const hideTimeout = useRef<NodeJS.Timeout | null>(null)
 
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (toolbarRef.current && !toolbarRef.current.contains(event.target as Node)) {
+      if (
+        toolbarRef.current && 
+        !toolbarRef.current.contains(event.target as Node) &&
+        (!fontPickerRef.current || !fontPickerRef.current.contains(event.target as Node)) &&
+        (!colorPickerRef.current || !colorPickerRef.current.contains(event.target as Node)) &&
+        (!highlightPickerRef.current || !highlightPickerRef.current.contains(event.target as Node)) &&
+        (!alignPickerRef.current || !alignPickerRef.current.contains(event.target as Node))
+      ) {
         setShowColorPicker(false)
         setShowHighlightPicker(false)
         setShowFontPicker(false)
@@ -65,7 +76,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [])
+  }, [showFontPicker, showColorPicker, showHighlightPicker, showAlignPicker])
 
   // Handle mouse events for research icon (paragraph hover)
   useEffect(() => {
@@ -282,14 +293,19 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
           <div className="relative">
             <DropdownButton
               isOpen={showFontPicker}
-              onClick={() => setShowFontPicker(!showFontPicker)}
+              onClick={() => {
+                setShowColorPicker(false);
+                setShowHighlightPicker(false);
+                setShowAlignPicker(false);
+                setShowFontPicker(!showFontPicker);
+              }}
             >
               <Type className="h-4 w-4" />
               <span className="text-sm">Font</span>
             </DropdownButton>
             
             {showFontPicker && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] w-48">
+              <div ref={fontPickerRef} className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] w-48">
                 {fonts.map(font => (
                   <Button
                     key={font}
@@ -338,14 +354,19 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
           <div className="relative">
             <DropdownButton
               isOpen={showColorPicker}
-              onClick={() => setShowColorPicker(!showColorPicker)}
+              onClick={() => {
+                setShowFontPicker(false);
+                setShowHighlightPicker(false);
+                setShowAlignPicker(false);
+                setShowColorPicker(!showColorPicker);
+              }}
             >
               <Palette className="h-4 w-4" />
               <span className="text-sm">Color</span>
             </DropdownButton>
             
             {showColorPicker && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] p-3">
+              <div ref={colorPickerRef} className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] p-3">
                 <div className="grid grid-cols-4 gap-2 w-32">
                   {colors.map(color => (
                     <Button
@@ -369,14 +390,19 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
           <div className="relative">
             <DropdownButton
               isOpen={showHighlightPicker}
-              onClick={() => setShowHighlightPicker(!showHighlightPicker)}
+              onClick={() => {
+                setShowFontPicker(false);
+                setShowColorPicker(false);
+                setShowAlignPicker(false);
+                setShowHighlightPicker(!showHighlightPicker);
+              }}
             >
               <Highlighter className="h-4 w-4" />
               <span className="text-sm">Highlight</span>
             </DropdownButton>
             
             {showHighlightPicker && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] p-3">
+              <div ref={highlightPickerRef} className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] p-3">
                 <div className="grid grid-cols-4 gap-2 w-32">
                   <Button
                     onClick={() => {
@@ -430,14 +456,19 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
           <div className="relative">
             <DropdownButton
               isOpen={showAlignPicker}
-              onClick={() => setShowAlignPicker(!showAlignPicker)}
+              onClick={() => {
+                setShowFontPicker(false);
+                setShowColorPicker(false);
+                setShowHighlightPicker(false);
+                setShowAlignPicker(!showAlignPicker);
+              }}
             >
               <AlignLeft className="h-4 w-4" />
               <span className="text-sm">Align</span>
             </DropdownButton>
             
             {showAlignPicker && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] w-48">
+              <div ref={alignPickerRef} className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] w-48">
                 <div className="p-2">
                   {[
                     { icon: AlignLeft, label: 'Left', align: 'left' },

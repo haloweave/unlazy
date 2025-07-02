@@ -197,7 +197,16 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
       if (!response.ok) throw new Error('Grammar check request failed');
 
       const data = await response.json();
-      setGrammarSpellingIssues(data.issues || []);
+      
+      // Filter out issues with invalid positions or empty text
+      const validIssues = (data.issues || []).filter((issue: GrammarSpellingIssue) => 
+        issue.text && issue.text.length > 0 && 
+        issue.position && 
+        issue.position.start >= 0 && 
+        issue.position.end > issue.position.start
+      );
+      
+      setGrammarSpellingIssues(validIssues);
     } catch (error) {
       console.error('Grammar check error:', error);
       setGrammarSpellingIssues([]);

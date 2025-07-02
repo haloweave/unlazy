@@ -24,24 +24,148 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ issues: [] });
     }
 
+    // Convert HTML to plain text for grammar checking
+    const plainText = content
+      .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+      .replace(/&nbsp;/g, ' ')   // Replace &nbsp; with spaces
+      .replace(/&amp;/g, '&')    // Replace &amp; with &
+      .replace(/&lt;/g, '<')     // Replace &lt; with <
+      .replace(/&gt;/g, '>')     // Replace &gt; with >
+      .replace(/&quot;/g, '"')   // Replace &quot; with "
+      .replace(/&#39;/g, "'")    // Replace &#39; with '
+      .replace(/\s+/g, ' ')      // Replace multiple spaces with single space
+      .trim();
+
+    if (!plainText || plainText.length < 2) {
+      return NextResponse.json({ issues: [] });
+    }
+
     const issues: GrammarSpellingIssue[] = [];
 
-    const file = await retext()
+    // Helper function to check if a word is likely a proper name
+    const isProperName = (word: string): boolean => {
+      // Check if word starts with capital letter and is not at sentence start
+      if (!/^[A-Z][a-z]+$/.test(word)) return false;
+      
+      // Common proper names to skip
+      const commonNames = [
+        'Elara', 'Clara', 'Lara', 'Sarah', 'Emma', 'John', 'James', 'Michael', 'David',
+        'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth', 'Barbara', 'Susan',
+        'Jessica', 'Ashley', 'Kimberly', 'Amy', 'Melissa', 'Donna', 'Ruth', 'Carol'
+      ];
+      
+      return commonNames.some(name => word.toLowerCase() === name.toLowerCase());
+    };
+
+    // Helper function to get best contextual suggestion
+    const getBestSuggestion = (word: string, suggestions: string[], context: string): string => {
+      if (!suggestions || suggestions.length === 0) return 'Check spelling';
+      
+      // For very close matches (1-2 character difference), return the first suggestion
+      if (suggestions.length > 0) {
+        const firstSuggestion = suggestions[0];
+        const editDistance = Math.abs(word.length - firstSuggestion.length);
+        if (editDistance <= 2) {
+          return firstSuggestion;
+        }
+      }
+      
+      // Return top 3 suggestions for longer lists
+      return suggestions.slice(0, 3).join(', ');
+    };
+
+    // Process with multiple retext plugins
+    const processor = retext()
       .use(retextEnglish)
       .use(retextSpell, { dictionary })
-      .process(content);
+      .use(retextRepeatedWords)
+      .use(retextPassive)
+      .use(retextReadability, { age: 16 }); // Target reading level
+
+    const file = await processor.process(plainText);
 
     for (const message of file.messages) {
+      // Determine issue type based on the plugin that generated it
+      let type: 'grammar' | 'spelling' = 'spelling';
+      let severity: 'error' | 'warning' | 'suggestion' = 'error';
+      
+      if (message.source === 'retext-repeated-words') {
+        type = 'grammar';
+        severity = 'warning';
+      } else if (message.source === 'retext-passive') {
+        type = 'grammar';
+        severity = 'suggestion';
+      } else if (message.source === 'retext-readability') {
+        type = 'grammar';
+        severity = 'suggestion';
+      }
+
+      // Extract text from the message
+      const messageAny = message as any;
+      let text = '';
+      let suggestion = '';
+      let position = { start: 0, end: 0 };
+
+      if (messageAny.actual) {
+        text = messageAny.actual;
+      } else if (messageAny.note) {
+        text = messageAny.note;
+      } else {
+        // Try to extract from reason
+        const reasonMatch = message.reason?.match(/`([^`]+)`/);
+        text = reasonMatch ? reasonMatch[1] : '';
+      }
+
+      // Skip proper names for spelling errors
+      if (type === 'spelling' && text && isProperName(text)) {
+        continue;
+      }
+
+      // Calculate position in the text
+      if (text && (message as any).position) {
+        const pos = (message as any).position;
+        if (pos.start && pos.start.offset !== undefined) {
+          position.start = pos.start.offset;
+        }
+        if (pos.end && pos.end.offset !== undefined) {
+          position.end = pos.end.offset;
+        }
+      } else if (text) {
+        // Fallback: find position in plainText
+        const textIndex = plainText.indexOf(text);
+        if (textIndex !== -1) {
+          position.start = textIndex;
+          position.end = textIndex + text.length;
+        }
+      }
+
+      if (messageAny.expected && Array.isArray(messageAny.expected)) {
+        suggestion = getBestSuggestion(text, messageAny.expected, plainText);
+      } else if (type === 'grammar') {
+        // Provide appropriate suggestions for grammar issues
+        if (message.source === 'retext-repeated-words') {
+          suggestion = 'Remove repeated word';
+        } else if (message.source === 'retext-passive') {
+          suggestion = 'Consider using active voice';
+        } else if (message.source === 'retext-readability') {
+          suggestion = 'Consider simplifying this sentence';
+        } else {
+          suggestion = 'Review grammar';
+        }
+      } else {
+        suggestion = 'Check spelling';
+      }
+
+      // Skip issues without meaningful text
+      if (!text || text.length < 2) continue;
+
       issues.push({
-        text: (message as any).actual || '',
-        type: 'spelling',
-        issue: message.reason || 'Spelling error',
-        suggestion: (message as any).expected ? (message as any).expected.join(', ') : 'Check spelling',
-        severity: 'error',
-        position: {
-          start: 0,
-          end: 0,
-        },
+        text: text,
+        type,
+        issue: message.reason || 'Issue detected',
+        suggestion,
+        severity,
+        position,
       });
     }
 
