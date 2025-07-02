@@ -45,6 +45,44 @@ function DocumentPageContent() {
   const [spellingIssues, setSpellingIssues] = useState<GrammarSpellingIssue[]>([])
   const [factCheckIssues, setFactCheckIssues] = useState<FactCheckIssue[]>([])
 
+  // Auto-generate title if content exists but title is still "Untitled Document"
+  const generateTitle = useCallback(async (contentText: string) => {
+    if (!contentText || contentText.length < 100) return;
+    
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'Generate a concise, descriptive title (3-8 words) for the given text. Return only the title, no quotes or extra text.'
+            },
+            {
+              role: 'user',
+              content: `Generate a title for this text:\n\n${contentText.substring(0, 500)}...`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 20
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const generatedTitle = data.choices[0].message.content.trim();
+        setTitle(generatedTitle);
+      }
+    } catch (error) {
+      console.error('Title generation failed:', error);
+    }
+  }, [setTitle]);
+
   // Autosave functionality using database
   const saveDocument = useCallback(async (titleToSave: string, contentToSave: string) => {
     if (!user) return;
@@ -87,6 +125,14 @@ function DocumentPageContent() {
       setLastSaved(new Date())
       setLastSavedContent(contentToSave)
       setLastSavedTitle(titleToSave)
+      
+      // Auto-generate title if saving with "Untitled Document" and enough content
+      if (titleToSave === 'Untitled Document' && contentToSave && contentToSave.length > 200) {
+        const plainText = contentToSave.replace(/<[^>]*>/g, '').trim();
+        if (plainText.length > 200) {
+          generateTitle(plainText);
+        }
+      }
     } catch (error) {
       console.error('Save failed:', error)
     } finally {
@@ -135,6 +181,7 @@ function DocumentPageContent() {
       loadDocuments()
     }
   }, [user])
+
 
   const loadDocument = (doc: Document) => {
     setTitle(doc.title)

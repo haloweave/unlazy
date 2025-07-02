@@ -69,31 +69,71 @@ const ErrorDecorations = Extension.create({
             errors.forEach((error: GrammarSpellingIssue | FactCheckIssue) => {
               if ('type' in error && error.type === 'spelling') {
                 const spellingError = error as GrammarSpellingIssue;
-                if (spellingError.position && spellingError.position.start < doc.content.size && spellingError.position.end <= doc.content.size) {
-                  const className = 'spelling-error'
-                  const decoration = Decoration.inline(
-                    spellingError.position.start,
-                    spellingError.position.end,
-                    {
-                      class: className,
-                      title: `${spellingError.issue} - Suggestion: ${spellingError.suggestion}`
+                if (spellingError.text) {
+                  // Find all occurrences of the text in the document
+                  const searchText = spellingError.text.toLowerCase();
+                  
+                  // Walk through the document to find text matches
+                  doc.descendants((node, nodePos) => {
+                    if (node.isText) {
+                      const text = node.text?.toLowerCase() || '';
+                      let index = 0;
+                      
+                      while ((index = text.indexOf(searchText, index)) !== -1) {
+                        const start = nodePos + index;
+                        const end = start + searchText.length;
+                        
+                        // Only add if within document bounds
+                        if (start >= 0 && end <= doc.content.size) {
+                          const decoration = Decoration.inline(
+                            start,
+                            end,
+                            {
+                              class: 'spelling-error',
+                              title: `${spellingError.issue} - Suggestion: ${spellingError.suggestion}`
+                            }
+                          )
+                          decorations.push(decoration)
+                        }
+                        
+                        index += 1; // Move to next possible match
+                      }
                     }
-                  )
-                  decorations.push(decoration)
+                    return true; // Continue traversing
+                  });
                 }
               } else if ('confidence' in error) { // FactCheckIssue has a 'confidence' property
                 const factCheckError = error as FactCheckIssue;
-                // For fact-check issues, we don't have position, so we'll highlight the entire document for now
-                // A more sophisticated approach would involve finding the text in the document
-                const decoration = Decoration.inline(
-                  0,
-                  doc.content.size,
-                  {
-                    class: 'fact-check-error',
-                    title: `${factCheckError.issue} - Suggestion: ${factCheckError.suggestion}`
-                  }
-                )
-                decorations.push(decoration)
+                if (factCheckError.text) {
+                  // Find the fact-check error text in the document
+                  const searchText = factCheckError.text.toLowerCase();
+                  
+                  doc.descendants((node, nodePos) => {
+                    if (node.isText) {
+                      const text = node.text?.toLowerCase() || '';
+                      const index = text.indexOf(searchText);
+                      
+                      if (index !== -1) {
+                        const start = nodePos + index;
+                        const end = start + searchText.length;
+                        
+                        if (start >= 0 && end <= doc.content.size) {
+                          const decoration = Decoration.inline(
+                            start,
+                            end,
+                            {
+                              class: 'fact-check-error',
+                              title: `${factCheckError.issue} - Suggestion: ${factCheckError.suggestion}`
+                            }
+                          )
+                          decorations.push(decoration)
+                        }
+                        return false; // Stop after first match
+                      }
+                    }
+                    return true;
+                  });
+                }
               }
             })
             
