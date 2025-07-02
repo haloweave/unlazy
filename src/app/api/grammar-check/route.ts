@@ -73,23 +73,23 @@ export async function POST(request: NextRequest) {
       return suggestions.slice(0, 3).join(', ');
     };
 
-    // Load dictionary dynamically to avoid build issues
+    // Create processor with spell checking (with fallback)
     let processor;
     try {
-      const { default: en } = await import('dictionary-en');
+      const en = await import('dictionary-en').then(m => m.default);
       processor = retext()
         .use(retextEnglish)
-        .use(retextSpell, { dictionary: en })
+        .use(retextSpell, en)
         .use(retextRepeatedWords)
         .use(retextPassive)
-        .use(retextReadability, { age: 16 }); // Target reading level
+        .use(retextReadability, { age: 16 });
     } catch (error) {
       console.warn('Could not load spell checker dictionary, falling back to grammar-only checking');
       processor = retext()
         .use(retextEnglish)
         .use(retextRepeatedWords)
         .use(retextPassive)
-        .use(retextReadability, { age: 16 }); // Target reading level
+        .use(retextReadability, { age: 16 });
     }
 
     const file = await processor.process(plainText);
