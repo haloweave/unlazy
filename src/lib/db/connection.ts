@@ -18,19 +18,39 @@ let db: ReturnType<typeof drizzle> | null = null
 
 if (connectionString) {
   try {
+    console.log('Attempting to connect to database with URL:', connectionString.substring(0, 30) + '...')
+    
     client = postgres(connectionString, { 
-      max: 1,
+      max: 5,
       prepare: false,
+      idle_timeout: 20,
+      max_lifetime: 60 * 30,
       connection: {
         application_name: 'unlazy-ai'
-      }
+      },
+      // Add retry logic for production
+      retry_delay: 1000,
+      max_retries: 3,
+      // Handle connection errors gracefully
+      onnotice: () => {}, // Suppress notices
+      debug: process.env.NODE_ENV === 'development'
     })
 
     // Create the drizzle instance with schema
     db = drizzle(client, { schema })
     console.log('Database connection established successfully')
+    
+    // Test the connection
+    client`SELECT 1`.then(() => {
+      console.log('Database connection test successful')
+    }).catch((error) => {
+      console.error('Database connection test failed:', error)
+      // Don't fail completely, just log the error
+    })
+    
   } catch (error) {
     console.error('Failed to create database connection:', error)
+    console.error('Connection string starts with:', connectionString.substring(0, 30))
   }
 }
 

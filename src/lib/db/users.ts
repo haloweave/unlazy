@@ -18,10 +18,12 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
       .limit(1)
 
     if (existingUser.length > 0) {
+      console.log(`User ${clerkUserId} found in database`)
       return existingUser[0]
     }
 
-    // Create new user if doesn't exist
+    // Create new user if doesn't exist (this handles previously logged in users)
+    console.log(`Creating new user ${clerkUserId} in database`)
     const [newUser] = await db
       .insert(users)
       .values({
@@ -30,9 +32,11 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
       })
       .returning()
 
+    console.log(`User ${clerkUserId} created successfully`)
     return newUser
   } catch (error) {
     console.error('Error ensuring user exists:', error)
-    throw error
+    // Don't throw error, return null to allow fallback behavior
+    return null
   }
 }
