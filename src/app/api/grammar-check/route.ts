@@ -5,7 +5,6 @@ import retextSpell from 'retext-spell';
 import retextRepeatedWords from 'retext-repeated-words';
 import retextPassive from 'retext-passive';
 import retextReadability from 'retext-readability';
-import en from 'dictionary-en';
 
 interface GrammarSpellingIssue {
   text: string;
@@ -74,13 +73,24 @@ export async function POST(request: NextRequest) {
       return suggestions.slice(0, 3).join(', ');
     };
 
-    // Process with multiple retext plugins
-    const processor = retext()
-      .use(retextEnglish)
-      .use(retextSpell, { dictionary: en })
-      .use(retextRepeatedWords)
-      .use(retextPassive)
-      .use(retextReadability, { age: 16 }); // Target reading level
+    // Load dictionary dynamically to avoid build issues
+    let processor;
+    try {
+      const { default: en } = await import('dictionary-en');
+      processor = retext()
+        .use(retextEnglish)
+        .use(retextSpell, { dictionary: en })
+        .use(retextRepeatedWords)
+        .use(retextPassive)
+        .use(retextReadability, { age: 16 }); // Target reading level
+    } catch (error) {
+      console.warn('Could not load spell checker dictionary, falling back to grammar-only checking');
+      processor = retext()
+        .use(retextEnglish)
+        .use(retextRepeatedWords)
+        .use(retextPassive)
+        .use(retextReadability, { age: 16 }); // Target reading level
+    }
 
     const file = await processor.process(plainText);
 
