@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs/server';
 import Exa from 'exa-js';
-import OpenAI from 'openai';
+import { openai } from '@ai-sdk/openai';
+import { generateText, generateObject } from 'ai';
+import { z } from 'zod';
 
 const exa = new Exa(process.env.EXA_API_KEY);
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,8 +24,8 @@ export async function POST(request: NextRequest) {
     let enhancedQuery = query;
     if (documentContent && documentContent.length > 100) {
       try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+        const { text } = await generateText({
+          model: openai('gpt-4o-mini'),
           messages: [
             {
               role: "system",
@@ -48,13 +47,12 @@ Original query: "${query}"
 Enhanced query:`
             }
           ],
-          max_tokens: 100,
+          maxTokens: 100,
           temperature: 0.3,
         });
 
-        const enhancedResult = completion.choices[0]?.message?.content?.trim();
-        if (enhancedResult && enhancedResult.length > 0) {
-          enhancedQuery = enhancedResult;
+        if (text && text.length > 0) {
+          enhancedQuery = text.trim();
         }
       } catch {
         console.log('LLM enhancement failed, using original query');
@@ -150,9 +148,9 @@ ${limitedHighlights}
           .join('\n\n')
           .substring(0, 8000); // Further limit total content
 
-        // Generate concise summary using OpenAI (like Perplexity)
-        const summaryCompletion = await openai.chat.completions.create({
-          model: "gpt-4o",
+        // Generate concise summary using AI SDK
+        const { text: summaryText } = await generateText({
+          model: openai('gpt-4o'),
           messages: [
             {
               role: "system",
@@ -177,21 +175,22 @@ User's research query: "${query}"`
 ${combinedContent}`
             }
           ],
-          max_tokens: 150,
+          maxTokens: 150,
           temperature: 0.3,
         });
 
-        summary = summaryCompletion.choices[0]?.message?.content?.trim() || '';
+        summary = summaryText?.trim() || '';
 
         // Generate follow-up questions
-        const questionsCompletion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+        const { object: questionsObj } = await generateObject({
+          model: openai('gpt-4o-mini'),
+          schema: z.object({
+            questions: z.array(z.string()).describe('Array of 3-4 follow-up questions ending with question marks')
+          }),
           messages: [
             {
               role: "system",
-              content: `You are a research assistant that generates thoughtful follow-up questions based on a research query and summary. 
-
-IMPORTANT: You must respond with ONLY a valid JSON array of strings, nothing else.
+              content: `You are a research assistant that generates thoughtful follow-up questions based on a research query and summary.
 
 Generate 3-4 concise, specific follow-up questions that:
 - Are naturally related to the original query and summary
@@ -200,9 +199,7 @@ Generate 3-4 concise, specific follow-up questions that:
 - Focus on different aspects: causes, effects, related topics, deeper details, comparisons, etc.
 - Are under 15 words each
 
-Original query: "${query}"
-
-Response format example: ["Question 1?", "Question 2?", "Question 3?"]`
+Original query: "${query}"`
             },
             {
               role: "user",
@@ -211,26 +208,11 @@ Response format example: ["Question 1?", "Question 2?", "Question 3?"]`
 ${summary}`
             }
           ],
-          max_tokens: 200,
+          maxTokens: 200,
           temperature: 0.4,
         });
 
-        try {
-          const questionsText = questionsCompletion.choices[0]?.message?.content?.trim() || '';
-          console.log('Raw questions response:', questionsText); // Debug log
-          followUpQuestions = JSON.parse(questionsText);
-        } catch (error) {
-          console.log('JSON parsing failed for questions:', error);
-          // Fallback if JSON parsing fails - try to extract questions manually
-          const questionsText = questionsCompletion.choices[0]?.message?.content?.trim() || '';
-          if (questionsText) {
-            // Extract questions from plain text format
-            const lines = questionsText.split('\n').filter(line => line.trim().endsWith('?'));
-            followUpQuestions = lines.map(line => line.trim().replace(/^\d+\.\s*/, '').replace(/^[\-\*]\s*/, '')).slice(0, 4);
-          } else {
-            followUpQuestions = [];
-          }
-        }
+        followUpQuestions = questionsObj.questions || [];
 
       } catch (error) {
         console.error('Summary generation failed:', error);

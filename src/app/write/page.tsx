@@ -50,33 +50,15 @@ function DocumentPageContent() {
     if (!contentText || contentText.length < 100) return;
     
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('/api/generate-title', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'Generate a concise, descriptive title (3-8 words) for the given text. Return only the title, no quotes or extra text.'
-            },
-            {
-              role: 'user',
-              content: `Generate a title for this text:\n\n${contentText.substring(0, 500)}...`
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 20
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: contentText.substring(0, 500) }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const generatedTitle = data.choices[0].message.content.trim();
-        setTitle(generatedTitle);
+        setTitle(data.title);
       }
     } catch (error) {
       console.error('Title generation failed:', error);
@@ -130,7 +112,7 @@ function DocumentPageContent() {
       if (titleToSave === 'Untitled Document' && contentToSave && contentToSave.length > 200) {
         const plainText = contentToSave.replace(/<[^>]*>/g, '').trim();
         if (plainText.length > 200) {
-          generateTitle(plainText);
+          await generateTitle(plainText);
         }
       }
     } catch (error) {
@@ -138,7 +120,7 @@ function DocumentPageContent() {
     } finally {
       setIsSaving(false)
     }
-  }, [user, currentDocId])
+  }, [user, currentDocId, generateTitle])
 
   // Handle research request from DocumentEditor
   const handleResearchRequest = (text: string) => {
