@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs/server';
-import OpenAI from 'openai';
+import { openai } from '@ai-sdk/openai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -168,9 +166,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Define schema for structured flashcard response
+    const flashcardSchema = z.object({
+      type: z.enum(['message', 'flashcards']).describe('Response type'),
+      message: z.string().describe('The main response message'),
+      options: z.array(z.object({
+        label: z.string().describe('Option label (A, B, C)'),
+        text: z.string().describe('Option text'),
+        correct: z.boolean().describe('Whether this option is correct')
+      })).optional().describe('Flashcard options if applicable')
+    });
+
     // Generate AI response with phase-aware system prompt
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+    const { object: aiResponseObj } = await generateObject({
+      model: openai('gpt-4o'),
+      schema: flashcardSchema,
       messages: [
         {
           role: "system",
@@ -182,67 +192,32 @@ When a user asks a question that requires cognitive effort, do **not** immediate
 
 You have two options:
 
-1. For simple or social interactions (e.g., "Hi", "How are you?", "What is 2 + 2?"), reply normally. Do NOT use the flashcard format for these. Just respond as a helpful assistant.
+1. For simple or social interactions (e.g., "Hi", "How are you?", "What is 2 + 2?"), set type to "message" and reply normally in the message field.
 
-2. For reasoning-based questions, return a JSON array of **three answer options**, structured like flashcards. The format must be:
-
-[
-  { "label": "A", "text": "Option A", "correct": true },
-  { "label": "B", "text": "Option B", "correct": false },
-  { "label": "C", "text": "Option C", "correct": false }
-]
-
-Only one option must be correct. Make all answers sound plausible to encourage critical thinking.
+2. For reasoning-based questions, set type to "flashcards" and provide three answer options. Only one option must be correct. Make all answers sound plausible to encourage critical thinking.
 
 Do **not** explain anything until the user selects or types a response. Then, provide affirmation, correction, and continue the conversation.
 
-Keep JSON strictly valid. Do not include explanation in the same message as the flashcards.
-
-Be warm, curious, and focused on helping the user learn — not just giving answers.
-`
+Be warm, curious, and focused on helping the user learn — not just giving answers.`
         },
         {
           role: "user",
           content: message
         }
       ],
-      max_tokens: 300,
+      maxTokens: 300,
       temperature: 0.7,
     });
 
-    const aiResponse = completion.choices[0]?.message?.content || "I'm here to help you think through this!";
+    const aiResponse = aiResponseObj.message || "I'm here to help you think through this!";
 
     // Debug log: raw GPT response
     console.log("RAW GPT RESPONSE:", aiResponse);
 
-    // Parse for flashcard options in the AI response
-    let type = 'message';
-    let options = null;
-    let mainResponse = aiResponse;
-    // Try to extract a JSON array of options from the response
-    const optionsMatch = aiResponse.match(/\[\s*{[\s\S]*?}\s*\]/);
-    if (optionsMatch) {
-      try {
-        const parsed = JSON.parse(optionsMatch[0]);
-        if (
-          Array.isArray(parsed) &&
-          parsed.length === 3 &&
-          parsed.every(
-            (o) =>
-              typeof o.label === 'string' &&
-              typeof o.text === 'string' &&
-              typeof o.correct === 'boolean'
-          )
-        ) {
-          type = 'flashcards';
-          options = parsed;
-          // Remove the JSON from the main response for display
-          mainResponse = aiResponse.replace(optionsMatch[0], '').trim();
-        }
-      } catch {
-        // Not valid JSON, fallback to message
-      }
-    }
+    // Parse structured response
+    const type = aiResponseObj.type || 'message';
+    const options = aiResponseObj.options || null;
+    const mainResponse = aiResponse;
 
     // Debug log: parsed flashcards
     console.log("PARSED FLASHCARDS:", options);
