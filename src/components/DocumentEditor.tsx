@@ -48,6 +48,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
   const toolbarRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const selectionTimeout = useRef<NodeJS.Timeout | null>(null)
+  const hideTimeout = useRef<NodeJS.Timeout | null>(null)
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -74,6 +75,12 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       const target = event.target as HTMLElement
       if (!target.closest('.ProseMirror')) return
 
+      // Clear any pending hide timeout
+      if (hideTimeout.current) {
+        clearTimeout(hideTimeout.current)
+        hideTimeout.current = null
+      }
+
       // Get the text content of the current paragraph or sentence
       let textElement = target
       while (textElement && !['P', 'H1', 'H2', 'H3', 'LI'].includes(textElement.tagName)) {
@@ -90,13 +97,14 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
           y: rect.top - editorRect.top + (rect.height / 2), // Center vertically
           text: textElement.textContent.trim()
         })
-      } else {
-        setResearchIcon({ show: false, x: 0, y: 0, text: '' })
       }
     }
 
     function handleMouseLeave() {
-      setResearchIcon({ show: false, x: 0, y: 0, text: '' })
+      // Add a delay before hiding to allow clicking the icon
+      hideTimeout.current = setTimeout(() => {
+        setResearchIcon({ show: false, x: 0, y: 0, text: '' })
+      }, 300) // 300ms delay
     }
 
     const editorElement = editorRef.current
@@ -106,6 +114,9 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     return () => {
       editorElement.removeEventListener('mousemove', handleMouseMove)
       editorElement.removeEventListener('mouseleave', handleMouseLeave)
+      if (hideTimeout.current) {
+        clearTimeout(hideTimeout.current)
+      }
     }
   }, [selectedTextResearch.show])
 
@@ -250,7 +261,10 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
   }) => (
     <Button
       type="button"
-      onClick={onClick}
+      onMouseDown={(e) => {
+        e.preventDefault()
+        onClick()
+      }}
       variant={isOpen ? "secondary" : "ghost"}
       className="flex items-center space-x-1 h-8 hover:scale-105 active:scale-95 transition-transform"
     >
@@ -491,7 +505,14 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
             >
               <motion.button
                 onClick={handleResearchClick}
-                className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors duration-200"
+                onMouseEnter={() => {
+                  // Keep the icon visible when hovering over it
+                  if (hideTimeout.current) {
+                    clearTimeout(hideTimeout.current)
+                    hideTimeout.current = null
+                  }
+                }}
+                className="w-6 h-6 bg-black hover:bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg transition-colors duration-200"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 title={`Research: "${(selectedTextResearch.show ? selectedTextResearch.text : researchIcon.text).substring(0, 50)}${(selectedTextResearch.show ? selectedTextResearch.text : researchIcon.text).length > 50 ? '...' : ''}"`}

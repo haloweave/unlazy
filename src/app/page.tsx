@@ -80,6 +80,65 @@ function CyclingTypewriter({
   );
 }
 
+function AnimatedHeading() {
+  const fullTextInitial = "Built to Assist—Not to write";
+  const fullTextFinal = "Built to Assist, Not to write";
+  const [displayedText, setDisplayedText] = useState(fullTextInitial);
+  const [showCursor, setShowCursor] = useState(true);
+  const [phase, setPhase] = useState('initial'); // 'initial', 'deleting', 'typing'
+  const hyphenIndex = fullTextInitial.indexOf('—');
+  const commaIndex = fullTextFinal.indexOf(',');
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    let interval: NodeJS.Timeout;
+
+    const typeSpeed = 100; // Speed for typing the comma
+    const deleteSpeed = 80; // Speed for deleting the em-dash
+    const pauseBeforeDelete = 1500; // Pause before starting deletion
+
+    if (phase === 'initial') {
+      timeout = setTimeout(() => {
+        setPhase('deleting');
+      }, pauseBeforeDelete);
+    } else if (phase === 'deleting') {
+      if (displayedText.length > hyphenIndex) {
+        timeout = setTimeout(() => {
+          setDisplayedText(fullTextInitial.substring(0, displayedText.length - 1));
+        }, deleteSpeed);
+      } else {
+        setPhase('typing');
+      }
+    } else if (phase === 'typing') {
+      if (displayedText.length < fullTextFinal.length) {
+        timeout = setTimeout(() => {
+          setDisplayedText(fullTextFinal.substring(0, displayedText.length + 1));
+        }, typeSpeed);
+      }
+    }
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [displayedText, phase, fullTextInitial, fullTextFinal, hyphenIndex, commaIndex]);
+
+  // Blinking cursor effect
+  useEffect(() => {
+    const cursorInterval = setInterval(() => {
+      setShowCursor(prev => !prev);
+    }, 530);
+    return () => clearInterval(cursorInterval);
+  }, []);
+
+  return (
+    <>
+      {displayedText}
+      <span className={`${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity duration-100`}>|</span>
+    </>
+  );
+}
+
 export default function HomePage() {
   const { user } = useUser();
 
@@ -94,18 +153,11 @@ export default function HomePage() {
           {/* Hero Section - Centered */}
           <div className="mb-8 sm:mb-16">
             <div className="text-3xl sm:text-4xl md:text-6xl font-light text-gray-900 mb-6 sm:mb-8 leading-tight">
-              <CyclingTypewriter 
-                baseText="AI copilot for Writing "
-                cyclingWords={["Articles", "Essays", "Research", "Stories", "Blogs", "Content", "Papers", "Reports"]}
-                typeSpeed={120}
-                deleteSpeed={80}
-                pauseTime={2000}
-              />
+              <AnimatedHeading />
             </div>
 
             <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-12 font-light">
-              {/* Stops you being lazy */}
-              Write thoughtfully while staying insightful and accurate.
+              Fact-check, research, and fix grammar - all in one place.
             </p>
 
             {/* CTA Button */}
@@ -124,10 +176,7 @@ export default function HomePage() {
 
             {/* Condensed Message */}
             <p className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-3xl mx-auto mb-8 sm:mb-12 px-4">
-              According to MIT, people are accumulating concerning amounts of cognitive debt because they offload writing to AI. AI is best used for fact-checking and fast, source-based research. Unlazy helps you write without losing your voice. Fact-check your sentences as you write, and research topics from real sources instantly.
-{/* 
-              While AI makes writers lazy with content generators, we empower your thinking with real-time fact-checking, 
-              research assistance, and cognitive prompts. Perfect for students, journalists, and critical thinkers. */}
+              According to MIT, people are accumulating concerning amounts of cognitive debt because they offload writing to AI. AI is best used for fact-checking, fast, source-based research, and fixing grammar. Unlazy helps you do exactly that - without losing your voice.
             </p>
 
             {/* Minimal Features */}
@@ -154,9 +203,8 @@ export default function HomePage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-shadow shadow-sm hover:shadow-md"
               >
-                <span role="img" aria-label="lightbulb">💡</span>
                 <div className="text-sm text-center">
-                  <div><strong>Built by Idea TBD</strong></div>
+                  <div><span role="img" aria-label="lightbulb">💡</span> <strong>Built by Idea TBD</strong></div>
                   <div className="text-xs">The Best Builder Community</div>
                 </div>
               </a>

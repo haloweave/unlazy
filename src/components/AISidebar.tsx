@@ -502,7 +502,6 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
                 transition={{ delay: 0.2 }}
               >
                 <p className="text-sm font-medium text-gray-900">Researching...</p>
-                <p className="text-xs text-gray-500">Finding the best sources for you</p>
               </motion.div>
             </motion.div>
           )}
@@ -510,6 +509,67 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
 
           {/* Main Content Area */}
           <div className="space-y-4">
+            {/* Issue Section - Show when details are expanded or when no research */}
+            {(grammarSpellingIssues.length > 0 || factCheckIssues.length > 0) && !isLoadingResearch && (showGrammarDetails || showFactCheckDetails || !summary) && (
+              <div className="border-t border-gray-200 pt-3 space-y-3">
+                {/* Compact Grammar/Spelling Issue List */}
+                {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (showGrammarDetails || !summary) && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Grammar & Spelling</h3>
+                    <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
+                      {grammarSpellingIssues.map((issue, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-gray-50 hover:bg-gray-100 rounded-md p-2 space-y-1.5 cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <Badge 
+                              variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
+                              className="text-xs font-medium"
+                            >
+                              {issue.type}
+                            </Badge>
+                            <p className="text-xs text-gray-700 font-medium truncate ml-2">&ldquo;{issue.text}&rdquo;</p>
+                          </div>
+                          <p className="text-xs text-blue-600 pl-2">→ {issue.suggestion}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Compact Fact-Check Issue List */}
+                {factCheckEnabled && factCheckIssues.length > 0 && (showFactCheckDetails || !summary) && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Fact-Check</h3>
+                    <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
+                      {factCheckIssues.map((issue, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-red-50 hover:bg-red-100 rounded-md p-2 space-y-1.5 cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <Badge 
+                              variant={issue.confidence === 'HIGH' ? 'destructive' : 'secondary'}
+                              className="text-xs font-medium"
+                            >
+                              {issue.confidence}
+                            </Badge>
+                            <p className="text-xs text-gray-700 font-medium truncate ml-2">&ldquo;{issue.text}&rdquo;</p>
+                          </div>
+                          <p className="text-xs text-blue-600 pl-2">→ {issue.suggestion}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Research Summary */}
             {summary && (
               <motion.div
@@ -583,68 +643,6 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
                       </div>
                     )}
               </motion.div>
-            )}
-
-
-            {/* Issue Section */}
-            {(grammarSpellingIssues.length > 0 || factCheckIssues.length > 0) && !isLoadingResearch && (
-              <div className="border-t border-gray-200 pt-3 space-y-3">
-                {/* Compact Grammar/Spelling Issue List */}
-                {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Grammar & Spelling</h3>
-                    <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
-                      {grammarSpellingIssues.map((issue, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="bg-gray-50 hover:bg-gray-100 rounded-md p-2 space-y-1.5 cursor-pointer"
-                        >
-                          <div className="flex items-center justify-between">
-                            <Badge 
-                              variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
-                              className="text-xs font-medium"
-                            >
-                              {issue.type}
-                            </Badge>
-                            <p className="text-xs text-gray-700 font-medium truncate ml-2">&ldquo;{issue.text}&rdquo;</p>
-                          </div>
-                          <p className="text-xs text-blue-600 pl-2">→ {issue.suggestion}</p>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Compact Fact-Check Issue List */}
-                {factCheckEnabled && factCheckIssues.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Fact-Check</h3>
-                    <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
-                      {factCheckIssues.map((issue, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="bg-red-50 hover:bg-red-100 rounded-md p-2 space-y-1.5 cursor-pointer"
-                        >
-                          <div className="flex items-center justify-between">
-                            <Badge 
-                              variant={issue.confidence === 'HIGH' ? 'destructive' : 'secondary'}
-                              className="text-xs font-medium"
-                            >
-                              {issue.confidence}
-                            </Badge>
-                            <p className="text-xs text-gray-700 font-medium truncate ml-2">&ldquo;{issue.text}&rdquo;</p>
-                          </div>
-                          <p className="text-xs text-blue-600 pl-2">→ {issue.suggestion}</p>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             )}
           </div>
 

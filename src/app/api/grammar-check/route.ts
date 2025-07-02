@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { retext } from 'retext';
 import retextEnglish from 'retext-english';
 import retextSpell from 'retext-spell';
+import retextRepeatedWords from 'retext-repeated-words';
+import retextPassive from 'retext-passive';
+import retextReadability from 'retext-readability';
 import dictionary from 'dictionary-en';
 
 interface GrammarSpellingIssue {
@@ -30,14 +33,14 @@ export async function POST(request: NextRequest) {
 
     for (const message of file.messages) {
       issues.push({
-        text: message.actual || '',
+        text: (message as any).actual || '',
         type: 'spelling',
-        issue: message.reason,
-        suggestion: message.expected ? message.expected.join(', ') : '',
+        issue: message.reason || 'Spelling error',
+        suggestion: (message as any).expected ? (message as any).expected.join(', ') : 'Check spelling',
         severity: 'error',
         position: {
-          start: message.position?.start.offset || 0,
-          end: message.position?.end.offset || 0,
+          start: 0,
+          end: 0,
         },
       });
     }
