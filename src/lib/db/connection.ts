@@ -7,7 +7,9 @@ import * as schema from './schema'
 const connectionString = process.env.DATABASE_URL
 
 if (!connectionString) {
-  console.warn('DATABASE_URL not found in environment variables')
+  console.error('DATABASE_URL not found in environment variables')
+} else {
+  console.log('Database URL found, attempting connection...')
 }
 
 // Create the connection only if DATABASE_URL exists
@@ -26,6 +28,7 @@ if (connectionString) {
 
     // Create the drizzle instance with schema
     db = drizzle(client, { schema })
+    console.log('Database connection established successfully')
   } catch (error) {
     console.error('Failed to create database connection:', error)
   }
