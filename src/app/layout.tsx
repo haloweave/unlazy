@@ -6,8 +6,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Unlazy.ai - Think Before You Answer",
-  description: "An AI tool that encourages cognitive engagement before revealing answers",
+  title: "You write. It assists.",
+  description: "Fact-check, research, and fix grammar - all in one place.",
 };
 
 export default function RootLayout({
