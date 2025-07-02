@@ -44,20 +44,7 @@ export async function POST(request: NextRequest) {
 
     const issues: GrammarSpellingIssue[] = [];
 
-    // Helper function to check if a word is likely a proper name
-    const isProperName = (word: string): boolean => {
-      // Check if word starts with capital letter and is not at sentence start
-      if (!/^[A-Z][a-z]+$/.test(word)) return false;
-      
-      // Common proper names to skip
-      const commonNames = [
-        'Elara', 'Clara', 'Lara', 'Sarah', 'Emma', 'John', 'James', 'Michael', 'David',
-        'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth', 'Barbara', 'Susan',
-        'Jessica', 'Ashley', 'Kimberly', 'Amy', 'Melissa', 'Donna', 'Ruth', 'Carol'
-      ];
-      
-      return commonNames.some(name => word.toLowerCase() === name.toLowerCase());
-    };
+    // LLM will handle proper names contextually instead of hardcoded filtering
 
     // Helper function to get best contextual suggestion
     const getBestSuggestion = (word: string, suggestions: string[], context: string): string => {
@@ -135,10 +122,7 @@ export async function POST(request: NextRequest) {
         text = reasonMatch ? reasonMatch[1] : '';
       }
 
-      // Skip proper names for spelling errors
-      if (type === 'spelling' && text && isProperName(text)) {
-        continue;
-      }
+      // Let LLM handle proper names contextually instead of filtering here
 
       // Calculate position in the text
       if (text && messageAny.position) {
@@ -195,16 +179,19 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: 'system',
-              content: `You are a spelling checker filter. Given a text and potential spelling issues, determine which are actual spelling errors vs proper names, valid words, or acceptable variants.
+              content: `You are a contextual spelling checker filter. Given a text and potential spelling issues, determine which are actual spelling errors that need correction.
 
-Return only indices (0-based) that represent ACTUAL spelling errors that need correction. Do not include:
-- Proper names (like "Elara", "Clara")  
-- Valid hyphenated words (like "kind-hearted")
-- Valid alternative spellings
-- Names of places, people, brands
-- Technical terms that are correctly spelled
+Consider the FULL CONTEXT of the document. Do NOT flag words that are:
+- Proper names (people, places, organizations) appropriate to the context
+- Scientific/technical terms relevant to the subject matter
+- Domain-specific terminology (medical, legal, academic, etc.)
+- Valid alternative spellings or regional variants
+- Brand names, product names, or specialized vocabulary
+- Words that are correct within the context of the passage
 
-Be very conservative - only flag clear misspellings.`
+Only flag words that are clearly misspelled regardless of context.
+
+Return only indices (0-based) that represent ACTUAL spelling errors that need correction.`
             },
             {
               role: 'user',
