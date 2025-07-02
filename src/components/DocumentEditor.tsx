@@ -9,6 +9,9 @@ import Highlight from '@tiptap/extension-highlight'
 import TextAlign from '@tiptap/extension-text-align'
 import ListItem from '@tiptap/extension-list-item'
 import FontFamily from '@tiptap/extension-font-family'
+import { Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { 
   Bold, 
   Italic, 
@@ -32,13 +35,108 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 
+// Custom extension for error decorations
+const ErrorDecorations = Extension.create({
+  name: 'errorDecorations',
+  
+  addOptions() {
+    return {
+      errors: []
+    }
+  },
+  
+  addProseMirrorPlugins() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const extension = this
+    
+    return [
+      new Plugin({
+        key: new PluginKey('errorDecorations'),
+        state: {
+          init() {
+            return DecorationSet.empty
+          },
+          apply(transaction, decorationSet, oldState, newState) {
+            const errors = extension.options.errors
+            
+            if (!errors || errors.length === 0) {
+              return DecorationSet.empty
+            }
+
+            const decorations: Decoration[] = []
+            const doc = newState.doc
+            
+            errors.forEach((error: GrammarSpellingIssue | FactCheckIssue) => {
+              if ('type' in error && error.type === 'spelling') {
+                const spellingError = error as GrammarSpellingIssue;
+                if (spellingError.position && spellingError.position.start < doc.content.size && spellingError.position.end <= doc.content.size) {
+                  const className = 'spelling-error'
+                  const decoration = Decoration.inline(
+                    spellingError.position.start,
+                    spellingError.position.end,
+                    {
+                      class: className,
+                      title: `${spellingError.issue} - Suggestion: ${spellingError.suggestion}`
+                    }
+                  )
+                  decorations.push(decoration)
+                }
+              } else if ('confidence' in error) { // FactCheckIssue has a 'confidence' property
+                const factCheckError = error as FactCheckIssue;
+                // For fact-check issues, we don't have position, so we'll highlight the entire document for now
+                // A more sophisticated approach would involve finding the text in the document
+                const decoration = Decoration.inline(
+                  0,
+                  doc.content.size,
+                  {
+                    class: 'fact-check-error',
+                    title: `${factCheckError.issue} - Suggestion: ${factCheckError.suggestion}`
+                  }
+                )
+                decorations.push(decoration)
+              }
+            })
+            
+            return DecorationSet.create(doc, decorations)
+          }
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state)
+          }
+        }
+      })
+    ]
+  }
+})
+
+interface GrammarSpellingIssue {
+  text: string;
+  type: 'grammar' | 'spelling';
+  issue: string;
+  suggestion: string;
+  severity: 'error' | 'warning' | 'suggestion';
+  position?: { start: number; end: number };
+}
+
+interface FactCheckIssue {
+  text: string;
+  issue: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  suggestion: string;
+  category?: string;
+  importance?: 'critical' | 'moderate' | 'minor';
+}
+
 interface DocumentEditorProps {
   content?: string
   onChange?: (content: string) => void
   onResearchRequest?: (text: string) => void
+  spellingIssues?: GrammarSpellingIssue[]
+  factCheckIssues?: FactCheckIssue[]
 }
 
-export default function DocumentEditor({ content = '', onChange, onResearchRequest }: DocumentEditorProps) {
+export default function DocumentEditor({ content = '', onChange, onResearchRequest, spellingIssues = [], factCheckIssues = [] }: DocumentEditorProps) {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showHighlightPicker, setShowHighlightPicker] = useState(false)
   const [showFontPicker, setShowFontPicker] = useState(false)
@@ -156,6 +254,9 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
+      ErrorDecorations.configure({
+        errors: [...spellingIssues, ...factCheckIssues]
+      }),
     ],
     content,
     onUpdate: ({ editor }) => {
@@ -207,6 +308,19 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       editor.commands.setContent(content || '')
     }
   }, [content, editor])
+
+  // Update error decorations when issues change
+  useEffect(() => {
+    if (editor) {
+      editor.extensionManager.extensions.forEach(extension => {
+        if (extension.name === 'errorDecorations') {
+          extension.options.errors = [...spellingIssues, ...factCheckIssues]
+        }
+      })
+      // Force update decorations
+      editor.view.dispatch(editor.state.tr)
+    }
+  }, [spellingIssues, factCheckIssues, editor])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -619,6 +733,23 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
         .document-editor .ProseMirror p {
           margin: 0.5rem 0;
           line-height: 1.6;
+        }
+
+        /* Squiggly underlines for errors */
+        .spelling-error {
+          text-decoration: underline;
+          text-decoration-color: #EF4444;
+          text-decoration-style: wavy;
+          text-decoration-thickness: 2px;
+          text-underline-offset: 2px;
+        }
+
+        .fact-check-error {
+          text-decoration: underline;
+          text-decoration-color: #F59E0B;
+          text-decoration-style: wavy;
+          text-decoration-thickness: 2px;
+          text-underline-offset: 2px;
         }
 
         .document-editor .ProseMirror strong {

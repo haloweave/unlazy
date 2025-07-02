@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-interface FactCheckIssue {
+export interface FactCheckIssue {
   text: string;
   issue: string;
   confidence: 'HIGH' | 'MEDIUM' | 'LOW';
@@ -56,9 +56,11 @@ interface AISidebarProps {
   content: string;
   researchQuery?: string;
   onResearchComplete?: () => void;
+  onSpellingIssuesChange?: (issues: GrammarSpellingIssue[]) => void;
+  onFactCheckIssuesChange?: (issues: FactCheckIssue[]) => void;
 }
 
-export default function AISidebar({ content, researchQuery, onResearchComplete }: AISidebarProps) {
+export default function AISidebar({ content, researchQuery, onResearchComplete, onSpellingIssuesChange, onFactCheckIssuesChange }: AISidebarProps) {
   const [factCheckEnabled, setFactCheckEnabled] = useState(true);
   const [grammarCheckEnabled, setGrammarCheckEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -166,18 +168,17 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
 
       const data = await response.json();
       
-      if (Array.isArray(data.result)) {
-        setFactCheckIssues(data.result);
-      } else {
-        setFactCheckIssues(data.result.issues || []);
-      }
+      const issues = Array.isArray(data.result) ? data.result : (data.result.issues || []);
+      setFactCheckIssues(issues);
+      onFactCheckIssuesChange?.(issues);
     } catch (error) {
       console.error('Fact-check error:', error);
       setFactCheckIssues([]);
+      onFactCheckIssuesChange?.([]);
     } finally {
       setIsLoadingFactCheck(false);
     }
-  }, [factCheckEnabled, setFactCheckIssues, setIsLoadingFactCheck]);
+  }, [factCheckEnabled, setFactCheckIssues, setIsLoadingFactCheck, onFactCheckIssuesChange]);
 
   // Grammar and spelling checking functionality
   const performGrammarCheck = useCallback(async (text: string) => {
@@ -194,7 +195,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
         body: JSON.stringify({ content: text }),
       });
 
-      if (!response.ok) throw new Error('Grammar check request failed');
+      if (!response.ok) throw new Error('Spell check request failed');
 
       const data = await response.json();
       
@@ -207,13 +208,15 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
       );
       
       setGrammarSpellingIssues(validIssues);
+      onSpellingIssuesChange?.(validIssues);
     } catch (error) {
-      console.error('Grammar check error:', error);
+      console.error('Spell check error:', error);
       setGrammarSpellingIssues([]);
+      onSpellingIssuesChange?.([]);
     } finally {
       setIsLoadingGrammarCheck(false);
     }
-  }, [grammarCheckEnabled, setGrammarSpellingIssues, setIsLoadingGrammarCheck]);
+  }, [grammarCheckEnabled, setGrammarSpellingIssues, setIsLoadingGrammarCheck, onSpellingIssuesChange]);
 
   // Debounced version of the fact check function
   const debouncedFactCheck = useMemo(
@@ -303,6 +306,12 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
   const clearHistory = () => {
     setResearchHistory([]);
     setCurrentSessionIndex(-1);
+    // Clear current research view
+    setSummary('');
+    setSources([]);
+    setFollowUpQuestions([]);
+    setSearchQuery('');
+    setCurrentSession(null);
   };
 
 
@@ -365,7 +374,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
                   </DropdownMenuItem>
                   <DropdownMenuItem className="text-xs text-gray-900" asChild>
                     <div className="flex items-center justify-between w-full">
-                      <span>Grammar Check</span>
+                      <span>Spell Check</span>
                       <Switch
                         checked={grammarCheckEnabled}
                         onCheckedChange={setGrammarCheckEnabled}
@@ -389,51 +398,62 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
 
           {/* Status & History Navigation */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-between w-full">
               <div className="text-xs text-gray-600">
                 {isLoadingResearch 
                   ? 'Researching...'
                   : isLoadingFactCheck
                     ? 'Fact-checking...'
                     : isLoadingGrammarCheck
-                      ? 'Checking grammar...'
-                      : summary 
-                        ? 'Research complete'
-                        : factCheckEnabled && content.length >= 100
-                          ? 'Document verified'
-                          : ''
+                      ? 'Checking spelling...'
+                      : ''
                 }
               </div>
               
-              {/* Fact Check Notification */}
-              {factCheckEnabled && factCheckIssues.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowFactCheckDetails(!showFactCheckDetails)}
-                  className="h-auto p-1 flex items-center space-x-1 text-xs text-red-600 hover:text-red-700"
-                >
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <span>{factCheckIssues.length}</span>
-                </Button>
-              )}
+              <div className="flex items-center space-x-2">
+                {/* Fact Check Notification */}
+                {factCheckEnabled && factCheckIssues.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFactCheckDetails(!showFactCheckDetails)}
+                    className="h-auto p-1 flex items-center space-x-1 text-xs text-red-600 hover:text-red-700"
+                  >
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span>{factCheckIssues.length}</span>
+                  </Button>
+                )}
 
-              {/* Grammar Check Notification */}
-              {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowGrammarDetails(!showGrammarDetails)}
-                  className="h-auto p-1 flex items-center space-x-1 text-xs text-orange-600 hover:text-orange-700"
-                >
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  <span>{grammarSpellingIssues.length}</span>
-                </Button>
-              )}
-              
-              {(isLoadingFactCheck || isLoadingGrammarCheck) && (
-                <RefreshCw className="h-3 w-3 animate-spin text-gray-600" />
-              )}
+                {/* Grammar Check Notification */}
+                {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowGrammarDetails(!showGrammarDetails)}
+                    className="h-auto p-1 flex items-center space-x-1 text-xs text-orange-600 hover:text-orange-700"
+                  >
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span>{grammarSpellingIssues.length}</span>
+                  </Button>
+                )}
+
+                {/* No Issues - Green Dot */}
+                {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && content.length >= 100 && lastCheckedContent.length > 0 && (
+                  <div className="group relative">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50">
+                      <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
+                        No errors detected
+                        <div className="absolute top-full right-3 border-4 border-transparent border-t-gray-900"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {(isLoadingFactCheck || isLoadingGrammarCheck) && (
+                  <RefreshCw className="h-3 w-3 animate-spin text-gray-600" />
+                )}
+              </div>
             </div>
             
           </div>
@@ -524,7 +544,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
                 {/* Compact Grammar/Spelling Issue List */}
                 {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (showGrammarDetails || !summary) && (
                   <div>
-                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Grammar & Spelling</h3>
+                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Spelling</h3>
                     <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
                       {grammarSpellingIssues.map((issue, index) => (
                         <motion.div
@@ -667,15 +687,24 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
             )}
           </div>
 
-          {/* Success State - No Issues Detected */}
-          {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.length >= 100 && !summary && (
+          {/* Subtle Co-pilot Messages */}
+          {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.length >= 100 && !summary && lastCheckedContent.length > 0 && (
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-green-50/80 border border-green-200 rounded-lg p-3 text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.4, 0] }}
+              transition={{ duration: 3, repeat: Infinity, repeatDelay: 5 }}
+              className="text-center py-8"
             >
-              <CheckCircle className="h-4 w-4 mx-auto mb-1 text-green-600" />
-              <p className="text-xs font-medium text-green-800">No issues detected</p>
+              <p className="text-xs text-gray-400">
+                {[
+                  "watching you type...",
+                  "keeping an eye on things...",
+                  "quietly checking...",
+                  "standing by...",
+                  "all looks good...",
+                  "smooth sailing..."
+                ][Math.floor(Date.now() / 10000) % 6]}
+              </p>
             </motion.div>
           )}
         </div>

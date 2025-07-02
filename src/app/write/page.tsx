@@ -8,6 +8,8 @@ import { FileText, Clock, Menu, X, Edit2, Check, Trash2, Download } from 'lucide
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { GrammarSpellingIssue } from '@/app/api/grammar-check/route'
+import { FactCheckIssue } from '@/components/AISidebar'
 
 interface Document {
   id: string;
@@ -40,6 +42,8 @@ function DocumentPageContent() {
   const [lastSavedContent, setLastSavedContent] = useState('')
   const [lastSavedTitle, setLastSavedTitle] = useState('Untitled Document')
   const [researchQuery, setResearchQuery] = useState<string>('')
+  const [spellingIssues, setSpellingIssues] = useState<GrammarSpellingIssue[]>([])
+  const [factCheckIssues, setFactCheckIssues] = useState<FactCheckIssue[]>([])
 
   // Autosave functionality using database
   const saveDocument = useCallback(async (titleToSave: string, contentToSave: string) => {
@@ -445,6 +449,8 @@ function DocumentPageContent() {
                 content={content}
                 onChange={setContent}
                 onResearchRequest={handleResearchRequest}
+                spellingIssues={spellingIssues}
+                factCheckIssues={factCheckIssues}
               />
             </div>
 
@@ -455,6 +461,8 @@ function DocumentPageContent() {
                   content={content} 
                   researchQuery={researchQuery}
                   onResearchComplete={() => setResearchQuery('')}
+                  onSpellingIssuesChange={setSpellingIssues}
+                  onFactCheckIssuesChange={setFactCheckIssues}
                 />
               </div>
             </div>

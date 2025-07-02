@@ -6,7 +6,7 @@ import retextRepeatedWords from 'retext-repeated-words';
 import retextPassive from 'retext-passive';
 import retextReadability from 'retext-readability';
 
-interface GrammarSpellingIssue {
+export interface GrammarSpellingIssue {
   text: string;
   type: 'grammar' | 'spelling';
   issue: string;
@@ -95,20 +95,18 @@ export async function POST(request: NextRequest) {
     const file = await processor.process(plainText);
 
     for (const message of file.messages) {
-      // Determine issue type based on the plugin that generated it
-      let type: 'grammar' | 'spelling' = 'spelling';
-      let severity: 'error' | 'warning' | 'suggestion' = 'error';
-      
-      if (message.source === 'retext-repeated-words') {
-        type = 'grammar';
-        severity = 'warning';
-      } else if (message.source === 'retext-passive') {
-        type = 'grammar';
-        severity = 'suggestion';
-      } else if (message.source === 'retext-readability') {
-        type = 'grammar';
-        severity = 'suggestion';
+      // Skip all grammar-related issues, only process spelling
+      if (message.source === 'retext-repeated-words' || 
+          message.source === 'retext-passive' || 
+          message.source === 'retext-readability') {
+        continue;
       }
+
+      // Only process spelling issues
+      // eslint-disable-next-line prefer-const
+      let type: 'grammar' | 'spelling' = 'spelling';
+      // eslint-disable-next-line prefer-const
+      let severity: 'error' | 'warning' | 'suggestion' = 'error';
 
       // Extract text from the message
       const messageAny = message as {
@@ -159,17 +157,12 @@ export async function POST(request: NextRequest) {
 
       if (messageAny.expected && Array.isArray(messageAny.expected)) {
         suggestion = getBestSuggestion(text, messageAny.expected, plainText);
-      } else if (type === 'grammar') {
-        // Provide appropriate suggestions for grammar issues
-        if (message.source === 'retext-repeated-words') {
-          suggestion = 'Remove repeated word';
-        } else if (message.source === 'retext-passive') {
-          suggestion = 'Consider using active voice';
-        } else if (message.source === 'retext-readability') {
-          suggestion = 'Consider simplifying this sentence';
-        } else {
-          suggestion = 'Review grammar';
-        }
+      } else if (message.source === 'retext-repeated-words') {
+        suggestion = 'Remove repeated word';
+      } else if (message.source === 'retext-passive') {
+        suggestion = 'Consider using active voice';
+      } else if (message.source === 'retext-readability') {
+        suggestion = 'Consider simplifying this sentence';
       } else {
         suggestion = 'Check spelling';
       }
@@ -187,9 +180,68 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Smart LLM-based filtering to remove false positives
+    let finalIssues = issues;
+    if (issues.length > 0 && issues.length <= 10) { // Only for reasonable number of issues
+      try {
+        const filterResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content: `You are a spelling checker filter. Given a text and potential spelling issues, determine which are actual spelling errors vs proper names, valid words, or acceptable variants.
+                
+Return only a JSON array of indices (0-based) that represent ACTUAL spelling errors that need correction. Do not include:
+- Proper names (like "Elara", "Clara")  
+- Valid hyphenated words (like "kind-hearted")
+- Valid alternative spellings
+- Names of places, people, brands
+- Technical terms that are correctly spelled
+
+Be very conservative - only flag clear misspellings.`
+              },
+              {
+                role: 'user',
+                content: `Text: "${plainText}"
+
+Potential issues:
+${issues.map((issue, i) => `${i}: "${issue.text}" (suggested: ${issue.suggestion})`).join('\n')}
+
+Return JSON array of indices for actual spelling errors only:`
+              }
+            ],
+            temperature: 0,
+            max_tokens: 100
+          }),
+        });
+
+        if (filterResponse.ok) {
+          const filterData = await filterResponse.json();
+          let content = filterData.choices[0].message.content;
+          
+          // Clean markdown formatting if present
+          content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          
+          const validIndices = JSON.parse(content);
+          if (Array.isArray(validIndices)) {
+            finalIssues = issues.filter((_, index) => validIndices.includes(index));
+          }
+        }
+      } catch (error) {
+        console.warn('LLM filtering failed, using original results:', error);
+        // Fall back to original issues if filtering fails
+      }
+    }
+
     return NextResponse.json({ 
-      issues,
-      message: 'Grammar and spelling check completed'
+      issues: finalIssues,
+      message: 'Spelling check completed'
     });
 
   } catch (error) {
