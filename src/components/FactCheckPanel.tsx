@@ -34,7 +34,8 @@ export default function FactCheckPanel({ content, isActive }: FactCheckPanelProp
 
   // Real-time fact checking with debounce
   const performFactCheck = useCallback(async (text: string, mode: 'realtime' | 'detailed' = 'realtime') => {
-    if (!text || text.length < 100) {
+    const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (!text || wordCount < 3) {
       setIssues([]);
       return;
     }
@@ -169,16 +170,16 @@ export default function FactCheckPanel({ content, isActive }: FactCheckPanelProp
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {content.length < 100 && (
+        {content.trim().split(/\s+/).filter(word => word.length > 0).length < 3 && (
           <div className="text-center text-gray-500 py-8">
             <CheckCircle className="h-8 w-8 mx-auto mb-3 text-gray-300" />
             <p className="text-sm">
-              Write at least 100 characters to start fact-checking
+              Write at least 3 words to start fact-checking
             </p>
           </div>
         )}
 
-        {content.length >= 100 && issues.length === 0 && !isChecking && (
+        {content.trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && issues.length === 0 && !isChecking && (
           <div className="text-center text-green-600 py-8">
             <CheckCircle className="h-8 w-8 mx-auto mb-3" />
             <p className="text-sm font-medium">

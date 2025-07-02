@@ -17,6 +17,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
     }
 
+    // Convert HTML to plain text for fact checking
+    const plainText = content
+      .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+      .replace(/&nbsp;/g, ' ')   // Replace &nbsp; with spaces
+      .replace(/&amp;/g, '&')    // Replace &amp; with &
+      .replace(/&lt;/g, '<')     // Replace &lt; with <
+      .replace(/&gt;/g, '>')     // Replace &gt; with >
+      .replace(/&quot;/g, '"')   // Replace &quot; with "
+      .replace(/&#39;/g, "'")    // Replace &#39; with '
+      .replace(/\s+/g, ' ')      // Replace multiple spaces with single space
+      .trim();
+
+    if (!plainText || plainText.trim().length === 0) {
+      return NextResponse.json({ error: 'Content is required' }, { status: 400 });
+    }
+
     // Define schemas for different modes
     const realtimeSchema = z.object({
       issues: z.array(z.object({
@@ -45,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     switch (mode) {
       case 'realtime':
-        maxTokens = 300;
+        maxTokens = 500;
         const { object: realtimeResult } = await generateObject({
           model: openai('gpt-4o'),
           schema: realtimeSchema,
@@ -65,7 +81,7 @@ If no issues found, return empty issues array.`
             },
             {
               role: "user",
-              content: `Please fact-check this text:\n\n${content}`
+              content: `Please fact-check this text:\n\n${plainText}`
             }
           ],
           maxTokens,
@@ -75,7 +91,7 @@ If no issues found, return empty issues array.`
         break;
 
       case 'detailed':
-        maxTokens = 800;
+        maxTokens = 1000;
         const { object: detailedResult } = await generateObject({
           model: openai('gpt-4o'),
           schema: detailedSchema,
@@ -95,7 +111,7 @@ For each issue, provide detailed analysis with confidence levels and importance 
             },
             {
               role: "user",
-              content: `Please fact-check this text:\n\n${content}`
+              content: `Please fact-check this text:\n\n${plainText}`
             }
           ],
           maxTokens,
@@ -112,6 +128,7 @@ For each issue, provide detailed analysis with confidence levels and importance 
       mode,
       result,
       contentLength: content.length,
+      plainTextLength: plainText.length,
       processingTime: Date.now()
     });
 

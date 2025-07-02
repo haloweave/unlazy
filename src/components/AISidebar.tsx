@@ -151,7 +151,9 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
 
   // Fact checking functionality
   const performFactCheck = useCallback(async (text: string) => {
-    if (!text || text.length < 100 || !factCheckEnabled) {
+    // Use word count instead of character count for consistency
+    const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (!text || wordCount < 3 || !factCheckEnabled) {
       setFactCheckIssues([]);
       return;
     }
@@ -182,7 +184,9 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
 
   // Grammar and spelling checking functionality
   const performGrammarCheck = useCallback(async (text: string) => {
-    if (!text || text.length < 10 || !grammarCheckEnabled) {
+    // Use word count for consistency with fact checking
+    const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (!text || wordCount < 2 || !grammarCheckEnabled) {
       setGrammarSpellingIssues([]);
       return;
     }
@@ -232,12 +236,13 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
 
   // Auto fact-check when enabled - only for substantial content changes
   useEffect(() => {
-    if (factCheckEnabled && content && content.length >= 100) {
+    if (factCheckEnabled && content) {
       // Only trigger if the content has changed substantially (more than just formatting)
       const textContent = content.replace(/<[^>]*>/g, '').trim();
       const lastTextContent = lastCheckedContent.replace(/<[^>]*>/g, '').trim();
+      const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
       
-      if (textContent !== lastTextContent && textContent.length > 0) {
+      if (textContent !== lastTextContent && wordCount >= 3) {
         debouncedFactCheck(content);
         setLastCheckedContent(content);
       }
@@ -248,12 +253,13 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
 
   // Auto grammar-check when enabled - only for substantial content changes
   useEffect(() => {
-    if (grammarCheckEnabled && content && content.length >= 10) {
+    if (grammarCheckEnabled && content) {
       // Only trigger if the content has changed substantially (more than just formatting)
       const textContent = content.replace(/<[^>]*>/g, '').trim();
       const lastTextContent = lastCheckedContent.replace(/<[^>]*>/g, '').trim();
+      const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
       
-      if (textContent !== lastTextContent && textContent.length > 0) {
+      if (textContent !== lastTextContent && wordCount >= 2) {
         debouncedGrammarCheck(content);
         setLastCheckedContent(content);
       }
@@ -438,7 +444,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                 )}
 
                 {/* No Issues - Green Dot */}
-                {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && content.length >= 100 && lastCheckedContent.length > 0 && (
+                {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && lastCheckedContent.length > 0 && (
                   <div className="group relative">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50">
@@ -462,7 +468,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto space-y-3">
           {/* Empty State - Your Writing Co-pilot */}
-          {!summary && !isLoadingResearch && !isLoadingFactCheck && !isLoadingGrammarCheck && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && content.length < 100 && (
+          {!summary && !isLoadingResearch && !isLoadingFactCheck && !isLoadingGrammarCheck && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length < 3 && (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
               <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                 <Search className="h-6 w-6 text-gray-400" />
@@ -688,7 +694,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           </div>
 
           {/* Subtle Co-pilot Messages */}
-          {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.length >= 100 && !summary && lastCheckedContent.length > 0 && (
+          {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && !summary && lastCheckedContent.length > 0 && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: [0, 0.4, 0] }}
