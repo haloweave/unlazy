@@ -75,6 +75,13 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
   const [researchHistory, setResearchHistory] = useState<ResearchSession[]>([]);
   const [currentSessionIndex, setCurrentSessionIndex] = useState<number>(-1);
   const [lastCheckedContent, setLastCheckedContent] = useState('');
+  // Store current session data to restore when switching back
+  const [currentSession, setCurrentSession] = useState<{
+    query: string;
+    summary: string;
+    sources: ResearchSource[];
+    followUpQuestions: string[];
+  } | null>(null);
 
   // Research functionality
   const performSearch = async (query: string) => {
@@ -98,7 +105,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
       
       // Save current session to history if it exists
       if (summary && sources.length > 0) {
-        const currentSession: ResearchSession = {
+        const sessionToSave: ResearchSession = {
           id: Date.now().toString(),
           query: searchQuery,
           summary,
@@ -106,13 +113,29 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
           followUpQuestions,
           timestamp: new Date()
         };
-        setResearchHistory(prev => [currentSession, ...prev]);
+        
+        // Only add if it's not a duplicate
+        setResearchHistory(prev => {
+          const isDuplicate = prev.some(session => 
+            session.query === sessionToSave.query && session.summary === sessionToSave.summary
+          );
+          return isDuplicate ? prev : [sessionToSave, ...prev];
+        });
       }
       
+      // Set new research results
       setSummary(data.summary || '');
       setSources(data.sources || []);
       setFollowUpQuestions(data.followUpQuestions || []);
-      setCurrentSessionIndex(-1); // Reset to current session
+      
+      // Update current session and reset index
+      setCurrentSession({
+        query,
+        summary: data.summary || '',
+        sources: data.sources || [],
+        followUpQuestions: data.followUpQuestions || []
+      });
+      setCurrentSessionIndex(-1);
       console.log('Received follow-up questions:', data.followUpQuestions); // Debug log
     } catch (error) {
       console.error('Research error:', error);
@@ -246,26 +269,20 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
 
   const loadSession = (index: number) => {
     if (index === -1) {
-      // Load current session - no change needed
+      // Load current session - restore the actual current session data
+      if (currentSession) {
+        setSummary(currentSession.summary);
+        setSources(currentSession.sources);
+        setFollowUpQuestions(currentSession.followUpQuestions);
+        setSearchQuery(currentSession.query);
+      }
       setCurrentSessionIndex(-1);
       return;
     }
     
     const session = researchHistory[index];
     if (session) {
-      // Save current state to history if it's not already there
-      if (currentSessionIndex === -1 && summary && sources.length > 0) {
-        const currentSession: ResearchSession = {
-          id: Date.now().toString(),
-          query: searchQuery,
-          summary,
-          sources,
-          followUpQuestions,
-          timestamp: new Date()
-        };
-        setResearchHistory(prev => [currentSession, ...prev]);
-      }
-      
+      // Load the historical session
       setSummary(session.summary);
       setSources(session.sources);
       setFollowUpQuestions(session.followUpQuestions);
@@ -433,7 +450,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col items-center justify-center py-12 space-y-4"
+              className="flex flex-col items-center justify-center h-full space-y-4"
             >
               <div className="relative w-20 h-20">
                 {/* Animated particles */}
@@ -648,19 +665,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
         {(summary || researchHistory.length > 0) && (
           <div className="border-t border-gray-200 py-1 px-2 flex justify-center">
             <div className="flex items-center space-x-2">
-              {researchHistory.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => loadSession(index)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    currentSessionIndex === index 
-                      ? 'bg-gray-900' 
-                      : 'bg-gray-300 hover:bg-gray-400'
-                  }`}
-                  title={`Session ${index + 1}`}
-                />
-              ))}
-              {/* Current session dot */}
+              {/* Current session dot - show first if we have a summary */}
               {summary && (
                 <button
                   onClick={() => loadSession(-1)}
@@ -672,6 +677,19 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
                   title="Current session"
                 />
               )}
+              {/* Historical sessions */}
+              {researchHistory.map((session, index) => (
+                <button
+                  key={session.id}
+                  onClick={() => loadSession(index)}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    currentSessionIndex === index 
+                      ? 'bg-gray-900' 
+                      : 'bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  title={`${session.query.substring(0, 30)}${session.query.length > 30 ? '...' : ''}`}
+                />
+              ))}
             </div>
           </div>
         )}

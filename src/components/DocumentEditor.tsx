@@ -250,10 +250,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
   }) => (
     <Button
       type="button"
-      onMouseDown={(e) => {
-        e.preventDefault()
-        onClick()
-      }}
+      onClick={onClick}
       variant={isOpen ? "secondary" : "ghost"}
       className="flex items-center space-x-1 h-8 hover:scale-105 active:scale-95 transition-transform"
     >
@@ -278,7 +275,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
             </DropdownButton>
             
             {showFontPicker && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] w-48">
                 {fonts.map(font => (
                   <Button
                     key={font}
@@ -334,7 +331,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
             </DropdownButton>
             
             {showColorPicker && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] p-3">
                 <div className="grid grid-cols-4 gap-2 w-32">
                   {colors.map(color => (
                     <Button
@@ -365,7 +362,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
             </DropdownButton>
             
             {showHighlightPicker && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] p-3">
                 <div className="grid grid-cols-4 gap-2 w-32">
                   <Button
                     onClick={() => {
@@ -426,7 +423,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
             </DropdownButton>
             
             {showAlignPicker && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] w-48">
                 <div className="p-2">
                   {[
                     { icon: AlignLeft, label: 'Left', align: 'left' },
