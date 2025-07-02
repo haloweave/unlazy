@@ -74,6 +74,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
   const [showGrammarDetails, setShowGrammarDetails] = useState(false);
   const [researchHistory, setResearchHistory] = useState<ResearchSession[]>([]);
   const [currentSessionIndex, setCurrentSessionIndex] = useState<number>(-1);
+  const [lastCheckedContent, setLastCheckedContent] = useState('');
 
   // Research functionality
   const performSearch = async (query: string) => {
@@ -194,23 +195,37 @@ export default function AISidebar({ content, researchQuery, onResearchComplete }
     [performGrammarCheck]
   );
 
-  // Auto fact-check when enabled
+  // Auto fact-check when enabled - only for substantial content changes
   useEffect(() => {
-    if (factCheckEnabled && content) {
-      debouncedFactCheck(content);
+    if (factCheckEnabled && content && content.length >= 100) {
+      // Only trigger if the content has changed substantially (more than just formatting)
+      const textContent = content.replace(/<[^>]*>/g, '').trim();
+      const lastTextContent = lastCheckedContent.replace(/<[^>]*>/g, '').trim();
+      
+      if (textContent !== lastTextContent && textContent.length > 0) {
+        debouncedFactCheck(content);
+        setLastCheckedContent(content);
+      }
     } else {
       setFactCheckIssues([]);
     }
-  }, [content, factCheckEnabled, debouncedFactCheck]);
+  }, [content, factCheckEnabled, debouncedFactCheck, lastCheckedContent]);
 
-  // Auto grammar-check when enabled
+  // Auto grammar-check when enabled - only for substantial content changes
   useEffect(() => {
-    if (grammarCheckEnabled && content) {
-      debouncedGrammarCheck(content);
+    if (grammarCheckEnabled && content && content.length >= 10) {
+      // Only trigger if the content has changed substantially (more than just formatting)
+      const textContent = content.replace(/<[^>]*>/g, '').trim();
+      const lastTextContent = lastCheckedContent.replace(/<[^>]*>/g, '').trim();
+      
+      if (textContent !== lastTextContent && textContent.length > 0) {
+        debouncedGrammarCheck(content);
+        setLastCheckedContent(content);
+      }
     } else {
       setGrammarSpellingIssues([]);
     }
-  }, [content, grammarCheckEnabled, debouncedGrammarCheck]);
+  }, [content, grammarCheckEnabled, debouncedGrammarCheck, lastCheckedContent]);
 
   // Handle incoming research queries from document editor
   useEffect(() => {

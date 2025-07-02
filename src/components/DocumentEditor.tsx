@@ -44,8 +44,10 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
   const [showFontPicker, setShowFontPicker] = useState(false)
   const [showAlignPicker, setShowAlignPicker] = useState(false)
   const [researchIcon, setResearchIcon] = useState({ show: false, x: 0, y: 0, text: '' })
+  const [selectedTextResearch, setSelectedTextResearch] = useState({ show: false, x: 0, y: 0, text: '' })
   const toolbarRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  const selectionTimeout = useRef<NodeJS.Timeout | null>(null)
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -64,9 +66,9 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     }
   }, [])
 
-  // Handle mouse events for research icon
+  // Handle mouse events for research icon (paragraph hover)
   useEffect(() => {
-    if (!editorRef.current) return
+    if (!editorRef.current || selectedTextResearch.show) return // Don't show if text is selected
 
     function handleMouseMove(event: MouseEvent) {
       const target = event.target as HTMLElement
@@ -88,6 +90,8 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
           y: rect.top - editorRect.top + (rect.height / 2), // Center vertically
           text: textElement.textContent.trim()
         })
+      } else {
+        setResearchIcon({ show: false, x: 0, y: 0, text: '' })
       }
     }
 
@@ -103,12 +107,14 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       editorElement.removeEventListener('mousemove', handleMouseMove)
       editorElement.removeEventListener('mouseleave', handleMouseLeave)
     }
-  }, [])
+  }, [selectedTextResearch.show])
 
   const handleResearchClick = () => {
-    if (researchIcon.text && onResearchRequest) {
-      onResearchRequest(researchIcon.text)
+    const textToResearch = selectedTextResearch.show ? selectedTextResearch.text : researchIcon.text
+    if (textToResearch && onResearchRequest) {
+      onResearchRequest(textToResearch)
       setResearchIcon({ show: false, x: 0, y: 0, text: '' })
+      setSelectedTextResearch({ show: false, x: 0, y: 0, text: '' })
     }
   }
   
@@ -134,6 +140,36 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       const html = editor.getHTML()
       onChange?.(html)
     },
+    onSelectionUpdate: ({ editor }) => {
+      // Debounce selection updates to avoid expensive coordinate calculations
+      clearTimeout(selectionTimeout.current)
+      selectionTimeout.current = setTimeout(() => {
+        const { from, to } = editor.state.selection
+        const selectedText = editor.state.doc.textBetween(from, to)
+
+        if (selectedText.trim().length > 0) {
+          const { view } = editor
+          const start = view.coordsAtPos(from)
+          const end = view.coordsAtPos(to)
+          const editorRect = editorRef.current?.getBoundingClientRect()
+
+          if (editorRect) {
+            // Calculate position for the floating button
+            const x = (start.left + end.left) / 2 - editorRect.left // Center horizontally
+            const y = start.top - editorRect.top - 40 // Above the selection
+
+            setSelectedTextResearch({
+              show: true,
+              x,
+              y,
+              text: selectedText.trim()
+            })
+          }
+        } else {
+          setSelectedTextResearch({ show: false, x: 0, y: 0, text: '' })
+        }
+      }, 150) // 150ms debounce
+    },
     editorProps: {
       attributes: {
         class: 'prose prose-lg max-w-none focus:outline-none min-h-[600px] p-8',
@@ -147,6 +183,15 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       editor.commands.setContent(content || '')
     }
   }, [content, editor])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (selectionTimeout.current) {
+        clearTimeout(selectionTimeout.current)
+      }
+    }
+  }, [])
 
   const colors = [
     '#000000', '#374151', '#6B7280', '#9CA3AF',
@@ -180,20 +225,18 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     children: React.ReactNode 
     className?: string
   }) => (
-    <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+    <Button
+      type="button"
+      onMouseDown={(e) => {
+        e.preventDefault()
+        onClick()
+      }}
+      variant={isActive ? "secondary" : "ghost"}
+      size="icon"
+      className={`h-8 w-8 hover:scale-105 active:scale-95 transition-transform ${className}`}
     >
-      <Button
-        type="button"
-        onClick={onClick}
-        variant={isActive ? "secondary" : "ghost"}
-        size="icon"
-        className={`h-8 w-8 ${className}`}
-      >
-        {children}
-      </Button>
-    </motion.div>
+      {children}
+    </Button>
   )
 
   const DropdownButton = ({ 
@@ -205,20 +248,18 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     onClick: () => void
     children: React.ReactNode 
   }) => (
-    <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+    <Button
+      type="button"
+      onMouseDown={(e) => {
+        e.preventDefault()
+        onClick()
+      }}
+      variant={isOpen ? "secondary" : "ghost"}
+      className="flex items-center space-x-1 h-8 hover:scale-105 active:scale-95 transition-transform"
     >
-      <Button
-        type="button"
-        onClick={onClick}
-        variant={isOpen ? "secondary" : "ghost"}
-        className="flex items-center space-x-1 h-8"
-      >
-        {children}
-        <ChevronDown className="h-3 w-3" />
-      </Button>
-    </motion.div>
+      {children}
+      <ChevronDown className="h-3 w-3" />
+    </Button>
   )
 
   return (
@@ -439,7 +480,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
         
         {/* Floating Research Icon */}
         <AnimatePresence>
-          {researchIcon.show && (
+          {(selectedTextResearch.show || researchIcon.show) && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -447,8 +488,8 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
               transition={{ duration: 0.15 }}
               className="absolute z-50 pointer-events-auto"
               style={{
-                left: `${researchIcon.x}px`,
-                top: `${researchIcon.y - 12}px`, // Center the icon vertically
+                left: `${selectedTextResearch.show ? selectedTextResearch.x : researchIcon.x}px`,
+                top: `${selectedTextResearch.show ? selectedTextResearch.y : researchIcon.y - 12}px`,
               }}
             >
               <motion.button
@@ -456,9 +497,9 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
                 className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors duration-200"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                title={`Research: "${researchIcon.text.substring(0, 50)}${researchIcon.text.length > 50 ? '...' : ''}"`}
+                title={`Research: "${(selectedTextResearch.show ? selectedTextResearch.text : researchIcon.text).substring(0, 50)}${(selectedTextResearch.show ? selectedTextResearch.text : researchIcon.text).length > 50 ? '...' : ''}"`}
               >
-                <Plus className="h-3 w-3" />
+                <Search className="h-3 w-3" />
               </motion.button>
             </motion.div>
           )}
