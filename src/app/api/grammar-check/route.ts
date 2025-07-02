@@ -5,6 +5,7 @@ import retextSpell from 'retext-spell';
 import retextRepeatedWords from 'retext-repeated-words';
 import retextPassive from 'retext-passive';
 import retextReadability from 'retext-readability';
+import en from 'dictionary-en';
 
 interface GrammarSpellingIssue {
   text: string;
@@ -73,9 +74,10 @@ export async function POST(request: NextRequest) {
       return suggestions.slice(0, 3).join(', ');
     };
 
-    // Process with multiple retext plugins (excluding spell check for now due to build issues)
+    // Process with multiple retext plugins
     const processor = retext()
       .use(retextEnglish)
+      .use(retextSpell, { dictionary: en })
       .use(retextRepeatedWords)
       .use(retextPassive)
       .use(retextReadability, { age: 16 }); // Target reading level

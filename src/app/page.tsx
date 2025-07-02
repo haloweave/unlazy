@@ -81,8 +81,8 @@ function CyclingTypewriter({
 }
 
 function AnimatedHeading() {
-  const fullTextInitial = "Built to Assist—Not to write";
-  const fullTextFinal = "Built to Assist, Not to write";
+  const fullTextInitial = "Built to Assist—Not to write.";
+  const fullTextFinal = "Built to Assist, Not to write.";
   const [displayedText, setDisplayedText] = useState(fullTextInitial);
   const [showCursor, setShowCursor] = useState(true);
   const [phase, setPhase] = useState('initial'); // 'initial', 'deleting', 'typing'
@@ -189,7 +189,7 @@ export default function HomePage() {
               </span>
               <span className="flex items-center text-sm">
                 <Zap className="h-4 w-4 text-yellow-600 mr-2 flex-shrink-0" />
-                Thinking prompts
+                Fix grammar
               </span>
             </div>
 
