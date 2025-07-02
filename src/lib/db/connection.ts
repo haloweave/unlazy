@@ -28,9 +28,6 @@ if (connectionString) {
       connection: {
         application_name: 'unlazy-ai'
       },
-      // Add retry logic for production
-      retry_delay: 1000,
-      max_retries: 3,
       // Handle connection errors gracefully
       onnotice: () => {}, // Suppress notices
       debug: process.env.NODE_ENV === 'development'
