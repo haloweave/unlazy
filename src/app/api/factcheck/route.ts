@@ -37,9 +37,9 @@ export async function POST(request: NextRequest) {
     const realtimeSchema = z.object({
       issues: z.array(z.object({
         text: z.string().describe('Exact text from document'),
-        issue: z.string().describe('Brief description of the potential error'),
+        issue: z.string().describe('Clear statement of what is factually wrong'),
         confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level'),
-        suggestion: z.string().describe('Brief correction or verification needed')
+        suggestion: z.string().describe('The correct factual information')
       })).describe('Array of potential issues, empty if no issues found')
     });
 
@@ -48,9 +48,9 @@ export async function POST(request: NextRequest) {
       issues: z.array(z.object({
         text: z.string().describe('Exact problematic text'),
         category: z.enum(['factual_error', 'needs_verification', 'misleading', 'outdated']).describe('Category of issue'),
-        issue: z.string().describe('Detailed explanation'),
+        issue: z.string().describe('Clear statement of what is factually wrong'),
         confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level'),
-        suggestion: z.string().describe('How to fix or verify'),
+        suggestion: z.string().describe('The correct factual information'),
         importance: z.enum(['critical', 'moderate', 'minor']).describe('Importance level')
       })),
       verificationNeeded: z.array(z.string()).describe('List of claims that need source verification')
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     switch (mode) {
       case 'realtime':
-        maxTokens = 500;
+        maxTokens = 2000;
         const { object: realtimeResult } = await generateObject({
           model: openai('gpt-4o'),
           schema: realtimeSchema,
@@ -71,17 +71,25 @@ export async function POST(request: NextRequest) {
               content: `You are a real-time fact-checking assistant. Analyze the provided text and identify potential factual errors, questionable claims, or statements that need verification.
 
 IMPORTANT RULES:
-1. Only flag clear factual claims that can be verified or disproven
+1. Only flag clear factual claims that are definitively wrong or verifiably incorrect
 2. Don't flag opinions, subjective statements, or creative writing
 3. Focus on dates, numbers, names, events, scientific claims, and historical facts
 4. Provide confidence levels: HIGH (definitely wrong), MEDIUM (likely wrong/questionable), LOW (needs verification)
-5. Be concise - this is real-time analysis
+5. Be definitive and assertive - state what's wrong, don't just suggest verification
+6. For HIGH confidence issues: State the correct fact, don't ask to verify
+7. CRITICAL: Limit to maximum 15 issues for comprehensive analysis
+8. Prioritize the most egregious factual errors
+
+Examples of good responses:
+- HIGH: "Birds cannot meow - they chirp, tweet, or make other bird sounds"
+- HIGH: "Cats don't bark - they meow, purr, or hiss"
+- MEDIUM: "Common sparrows typically live 4-7 years, not 120 years"
 
 If no issues found, return empty issues array.`
             },
             {
               role: "user",
-              content: `Please fact-check this text:\n\n${plainText}`
+              content: `Please fact-check this text (limit to max 15 issues):\n\n${plainText.length > 8000 ? plainText.substring(0, 8000) + '...' : plainText}`
             }
           ],
           maxTokens,
@@ -91,7 +99,7 @@ If no issues found, return empty issues array.`
         break;
 
       case 'detailed':
-        maxTokens = 1000;
+        maxTokens = 4000;
         const { object: detailedResult } = await generateObject({
           model: openai('gpt-4o'),
           schema: detailedSchema,
@@ -111,7 +119,7 @@ For each issue, provide detailed analysis with confidence levels and importance 
             },
             {
               role: "user",
-              content: `Please fact-check this text:\n\n${plainText}`
+              content: `Please fact-check this text (limit to max 25 issues):\n\n${plainText.length > 12000 ? plainText.substring(0, 12000) + '...' : plainText}`
             }
           ],
           maxTokens,

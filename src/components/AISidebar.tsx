@@ -58,9 +58,10 @@ interface AISidebarProps {
   onResearchComplete?: () => void;
   onSpellingIssuesChange?: (issues: GrammarSpellingIssue[]) => void;
   onFactCheckIssuesChange?: (issues: FactCheckIssue[]) => void;
+  manualFactCheckTrigger?: number;
 }
 
-export default function AISidebar({ content, researchQuery, onResearchComplete, onSpellingIssuesChange, onFactCheckIssuesChange }: AISidebarProps) {
+export default function AISidebar({ content, researchQuery, onResearchComplete, onSpellingIssuesChange, onFactCheckIssuesChange, manualFactCheckTrigger }: AISidebarProps) {
   const [factCheckEnabled, setFactCheckEnabled] = useState(true);
   const [grammarCheckEnabled, setGrammarCheckEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -234,22 +235,15 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     [performGrammarCheck]
   );
 
-  // Auto fact-check when enabled - only for substantial content changes
+  // Manual fact-check triggered by Ctrl+Space shortcut
   useEffect(() => {
-    if (factCheckEnabled && content) {
-      // Only trigger if the content has changed substantially (more than just formatting)
-      const textContent = content.replace(/<[^>]*>/g, '').trim();
-      const lastTextContent = lastCheckedContent.replace(/<[^>]*>/g, '').trim();
-      const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
-      
-      if (textContent !== lastTextContent && wordCount >= 3) {
-        debouncedFactCheck(content);
-        setLastCheckedContent(content);
+    if (manualFactCheckTrigger && manualFactCheckTrigger > 0 && content) {
+      const wordCount = content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length;
+      if (wordCount >= 3) {
+        performFactCheck(content);
       }
-    } else {
-      setFactCheckIssues([]);
     }
-  }, [content, factCheckEnabled, debouncedFactCheck, lastCheckedContent]);
+  }, [manualFactCheckTrigger, content, performFactCheck]);
 
   // Auto grammar-check when enabled - only for substantial content changes
   useEffect(() => {
@@ -324,7 +318,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
 
   return (
     <Card className="h-[704px] overflow-hidden bg-white text-gray-900 border-gray-200 shadow-lg">
-      <CardContent className="h-full flex flex-col p-3 space-y-3">
+      <CardContent className="h-full flex flex-col pt-3 px-3 pb-0 space-y-3">
         {/* Compact Header - Search & Controls */}
         <div className="space-y-2 relative">
           {/* Top Row - Search Input and Top-Right Buttons */}
@@ -546,18 +540,18 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           <div className="space-y-4">
             {/* Issue Section - Show when details are expanded or when no research */}
             {(grammarSpellingIssues.length > 0 || factCheckIssues.length > 0) && !isLoadingResearch && (showGrammarDetails || showFactCheckDetails || !summary) && (
-              <div className="border-t border-gray-200 pt-3 space-y-3">
+              <div className="border-t border-gray-200 pt-2 space-y-2">
                 {/* Compact Grammar/Spelling Issue List */}
                 {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (showGrammarDetails || !summary) && (
                   <div>
-                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Spelling</h3>
-                    <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
+                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-1">Spelling</h3>
+                    <div className="space-y-2 px-2 max-h-64 overflow-y-auto">
                       {grammarSpellingIssues.map((issue, index) => (
                         <motion.div
                           key={index}
                           initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="bg-gray-50 hover:bg-gray-100 rounded-md p-2 space-y-1.5 cursor-pointer"
+                          className="bg-gray-50 hover:bg-gray-100 rounded-md p-3 space-y-2 cursor-pointer"
                         >
                           <div className="flex items-start space-x-2">
                             <Badge 
@@ -590,25 +584,27 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                 {/* Compact Fact-Check Issue List */}
                 {factCheckEnabled && factCheckIssues.length > 0 && (showFactCheckDetails || !summary) && (
                   <div>
-                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-2">Fact-Check</h3>
-                    <div className="space-y-1 px-1 max-h-48 overflow-y-auto">
+                    <h3 className="text-xs font-semibold text-gray-600 px-3 mb-1">Fact-Check</h3>
+                    <div className="space-y-2 px-2 max-h-64 overflow-y-auto">
                       {factCheckIssues.map((issue, index) => (
                         <motion.div
                           key={index}
                           initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="bg-red-50 hover:bg-red-100 rounded-md p-2 space-y-1.5 cursor-pointer"
+                          className="bg-red-50 hover:bg-red-100 rounded-md p-3 space-y-2 cursor-pointer"
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-start gap-2">
                             <Badge 
                               variant={issue.confidence === 'HIGH' ? 'destructive' : 'secondary'}
-                              className="text-xs font-medium"
+                              className="text-xs font-medium flex-shrink-0"
                             >
                               {issue.confidence}
                             </Badge>
-                            <p className="text-xs text-gray-700 font-medium truncate ml-2">&ldquo;{issue.text}&rdquo;</p>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-700 font-medium line-clamp-2">&ldquo;{issue.text}&rdquo;</p>
+                              <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
+                            </div>
                           </div>
-                          <p className="text-xs text-blue-600 pl-2">→ {issue.suggestion}</p>
                         </motion.div>
                       ))}
                     </div>
@@ -747,6 +743,13 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
             </div>
           </div>
         )}
+        
+        {/* Keyboard Shortcuts Footer */}
+        <div className="pt-0 pb-1 px-3">
+          <p className="text-xs text-center text-gray-400">
+            {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'} + Space for fact checking
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

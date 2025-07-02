@@ -75,12 +75,8 @@ export default function FactCheckPanel({ content, isActive }: FactCheckPanelProp
     [performFactCheck]
   );
 
-  // Effect for real-time checking
-  useEffect(() => {
-    if (isActive && checkMode === 'realtime' && content) {
-      debouncedFactCheck(content, 'realtime');
-    }
-  }, [content, isActive, checkMode, debouncedFactCheck]);
+  // Manual fact checking only (auto-check disabled)
+  // Fact checking triggered by Ctrl+Space shortcut
 
   // Manual detailed check
   const runDetailedCheck = () => {

@@ -44,6 +44,7 @@ function DocumentPageContent() {
   const [researchQuery, setResearchQuery] = useState<string>('')
   const [spellingIssues, setSpellingIssues] = useState<GrammarSpellingIssue[]>([])
   const [factCheckIssues, setFactCheckIssues] = useState<FactCheckIssue[]>([])
+  const [manualFactCheckTrigger, setManualFactCheckTrigger] = useState(0)
 
   // Auto-generate title if content exists but title is still "Untitled Document"
   const generateTitle = useCallback(async (contentText: string) => {
@@ -146,6 +147,59 @@ function DocumentPageContent() {
     return () => clearTimeout(timer)
   }, [title, content, saveDocument, lastSavedContent, lastSavedTitle])
 
+  // Keyboard shortcut for saving (Ctrl+S / Cmd+S)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+S (Windows/Linux) or Cmd+S (Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault() // Prevent browser's default save dialog
+        
+        // Only save if there's content or a custom title
+        if (content || title !== 'Untitled Document') {
+          saveDocument(title, content)
+        }
+      }
+    }
+
+    // Add event listener
+    document.addEventListener('keydown', handleKeyDown)
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [saveDocument, title, content])
+
+  // Manual fact check with Ctrl+Space - trigger AISidebar to perform fact check
+  const triggerFactCheck = useCallback(() => {
+    if (!content) return;
+    
+    const wordCount = content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount < 3) return;
+
+    // Trigger fact check in AISidebar by incrementing trigger
+    setManualFactCheckTrigger(prev => prev + 1);
+  }, [content]);
+
+  // Keyboard shortcut for fact checking (Ctrl+Space)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+Space (Windows/Linux) or Cmd+Space (Mac)
+      if ((event.ctrlKey || event.metaKey) && event.code === 'Space') {
+        event.preventDefault(); // Prevent default behavior
+        triggerFactCheck();
+      }
+    }
+
+    // Add event listener
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [triggerFactCheck])
+
   // Load documents on mount
   useEffect(() => {
     if (user) {
@@ -172,6 +226,10 @@ function DocumentPageContent() {
     setLastSavedContent(doc.content)
     setLastSavedTitle(doc.title)
     setShowHistory(false)
+    // Reset AI sidebar state when switching documents
+    setSpellingIssues([])
+    setFactCheckIssues([])
+    setResearchQuery('')
   }
 
   const createNewDocument = () => {
@@ -181,6 +239,10 @@ function DocumentPageContent() {
     setLastSavedContent('')
     setLastSavedTitle('Untitled Document')
     setShowHistory(false)
+    // Reset AI sidebar state when creating new document
+    setSpellingIssues([])
+    setFactCheckIssues([])
+    setResearchQuery('')
   }
 
   const deleteDocument = async (docId: string) => {
@@ -487,11 +549,13 @@ function DocumentPageContent() {
             <div className="lg:col-span-1">
               <div className="sticky top-8 h-fit">
                 <AISidebar 
+                  key={currentDocId || 'new-doc'} 
                   content={content} 
                   researchQuery={researchQuery}
                   onResearchComplete={() => setResearchQuery('')}
                   onSpellingIssuesChange={setSpellingIssues}
                   onFactCheckIssuesChange={setFactCheckIssues}
+                  manualFactCheckTrigger={manualFactCheckTrigger}
                 />
               </div>
             </div>
