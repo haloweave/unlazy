@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     // Smart LLM-based filtering to remove false positives
     let finalIssues = issues;
-    if (issues.length > 0 && issues.length <= 10) { // Only for reasonable number of issues
+    if (issues.length > 0 && issues.length <= 20) { // Increased threshold for better filtering
       try {
         const { object } = await generateObject({
           model: openai('gpt-4o-mini'),
@@ -179,17 +179,34 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: 'system',
-              content: `You are a contextual spelling checker filter. Given a text and potential spelling issues, determine which are actual spelling errors that need correction.
+              content: `You are a contextual spelling checker filter specializing in geographical, historical, and domain-specific content. Given a text and potential spelling issues, determine which are actual spelling errors that need correction.
 
-Consider the FULL CONTEXT of the document. Do NOT flag words that are:
-- Proper names (people, places, organizations) appropriate to the context
+CRITICAL: Analyze the FULL CONTEXT to understand the subject matter (historical period, geographical region, field of study, etc.).
+
+Do NOT flag words that are contextually appropriate:
+
+GEOGRAPHICAL CONTEXT:
+- Place names, rivers, mountains, cities, regions (e.g., "Berezina" in Napoleon context)
+- Foreign language terms appropriate to the location/culture being discussed
+- Regional spelling variants (British vs American, etc.)
+
+HISTORICAL CONTEXT:
+- Historical terms, titles, and organizations (e.g., "Grande Armée" for Napoleon's army)
+- Period-appropriate terminology and foreign words
+- Historical figures, battles, events, and locations
+- Military units, ranks, and formations from the historical period
+
+DOMAIN-SPECIFIC TERMINOLOGY:
 - Scientific/technical terms relevant to the subject matter
-- Domain-specific terminology (medical, legal, academic, etc.)
-- Valid alternative spellings or regional variants
-- Brand names, product names, or specialized vocabulary
-- Words that are correct within the context of the passage
+- Medical, legal, academic, or professional terminology
+- Specialized vocabulary within the field being discussed
 
-Only flag words that are clearly misspelled regardless of context.
+LINGUISTIC CONSIDERATIONS:
+- Foreign words/phrases that are standard in English academic/historical writing
+- Proper plurals of foreign terms (e.g., "Cossacks" is correct plural)
+- Accent marks and diacritics in foreign proper nouns
+
+Only flag words that are clearly misspelled regardless of historical, geographical, or domain context.
 
 Return only indices (0-based) that represent ACTUAL spelling errors that need correction.`
             },
