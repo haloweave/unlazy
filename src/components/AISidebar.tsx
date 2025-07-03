@@ -238,7 +238,8 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
         performFactCheck(content);
       }
     }
-  }, [manualFactCheckTrigger, content, performFactCheck]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manualFactCheckTrigger]);
 
   // Auto grammar-check when enabled - only for substantial content changes
   useEffect(() => {
