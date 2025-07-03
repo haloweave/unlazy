@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import DocumentEditor from '@/components/DocumentEditor'
 import AISidebar from '@/components/AISidebar'
-import { FileText, Clock, Menu, X, Edit2, Check, Trash2, Download } from 'lucide-react'
+import { FileText, Clock, Menu, X, Edit2, Check, Trash2, Download, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,7 +30,7 @@ export default function DocumentPage() {
 }
 
 function DocumentPageContent() {
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const [title, setTitle] = useState('Untitled Document')
   const [content, setContent] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -45,6 +45,9 @@ function DocumentPageContent() {
   const [spellingIssues, setSpellingIssues] = useState<GrammarSpellingIssue[]>([])
   const [factCheckIssues, setFactCheckIssues] = useState<FactCheckIssue[]>([])
   const [manualFactCheckTrigger, setManualFactCheckTrigger] = useState(0)
+  const [highlightText, setHighlightText] = useState<{text: string, trigger: number} | null>(null)
+  const [ignoredFactChecks, setIgnoredFactChecks] = useState<Set<string>>(new Set())
+  const [showSavedMessage, setShowSavedMessage] = useState(false)
 
   // Auto-generate title if content exists but title is still "Untitled Document"
   const generateTitle = useCallback(async (contentText: string) => {
@@ -109,6 +112,12 @@ function DocumentPageContent() {
       setLastSavedContent(contentToSave)
       setLastSavedTitle(titleToSave)
       
+      // Show "Saved" message and hide it after 2 seconds
+      setShowSavedMessage(true)
+      setTimeout(() => {
+        setShowSavedMessage(false)
+      }, 2000)
+      
       // Auto-generate title if saving with "Untitled Document" and enough content
       if (titleToSave === 'Untitled Document' && contentToSave && contentToSave.length > 200) {
         const plainText = contentToSave.replace(/<[^>]*>/g, '').trim();
@@ -128,6 +137,11 @@ function DocumentPageContent() {
     // Trigger research in the AI sidebar by setting the research query
     setResearchQuery(text)
   }
+
+  // Handle highlighting text in the document editor
+  const handleHighlightText = useCallback((text: string) => {
+    setHighlightText({text, trigger: Date.now()})
+  }, [])
 
   // Autosave effect - only save when there are actual changes
   useEffect(() => {
@@ -341,6 +355,20 @@ function DocumentPageContent() {
     }
   }
 
+  // Debug logging
+  console.log('Auth state:', { isLoaded, user: !!user })
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 mx-auto mb-4 text-gray-400 animate-spin" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -514,16 +542,19 @@ function DocumentPageContent() {
               </div>
               
               <div className="flex items-center space-x-4">
-                {isSaving && (
+                {/* Saving Status or Character Count */}
+                {isSaving ? (
                   <div className="flex items-center text-xs text-gray-400">
                     <Clock className="h-3 w-3 mr-1 animate-spin" />
                     Saving...
                   </div>
-                )}
-                
-                {lastSaved && !isSaving && (
+                ) : showSavedMessage ? (
                   <span className="text-xs text-gray-400">
                     Saved
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-400 font-mono">
+                    {content.replace(/<[^>]*>/g, '').length} chars
                   </span>
                 )}
               </div>
@@ -542,6 +573,8 @@ function DocumentPageContent() {
                 onResearchRequest={handleResearchRequest}
                 spellingIssues={spellingIssues}
                 factCheckIssues={factCheckIssues}
+                highlightText={highlightText}
+                ignoredFactChecks={ignoredFactChecks}
               />
             </div>
 
@@ -556,6 +589,9 @@ function DocumentPageContent() {
                   onSpellingIssuesChange={setSpellingIssues}
                   onFactCheckIssuesChange={setFactCheckIssues}
                   manualFactCheckTrigger={manualFactCheckTrigger}
+                  onHighlightText={handleHighlightText}
+                  ignoredFactChecks={ignoredFactChecks}
+                  onIgnoredFactChecksChange={setIgnoredFactChecks}
                 />
               </div>
             </div>

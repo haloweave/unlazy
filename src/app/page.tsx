@@ -165,7 +165,7 @@ export default function HomePage() {
                 size="lg"
                 className="group h-12 sm:h-14 px-16 sm:px-24 text-sm sm:text-base font-medium rounded-lg bg-black hover:bg-black/90 transition-all duration-200"
               >
-                <a href={user ? '/write' : '/sign-in'}>
+                <a href={user ? '/write' : '/sign-in?redirect_url=/write'}>
                   <span>{user ? 'Continue Writing' : 'Write Smarter for free'}</span>
                   <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </a>

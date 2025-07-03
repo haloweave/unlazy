@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle, RefreshCw, Loader2, Settings, Trash2 } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle, RefreshCw, Loader2, Settings, Trash2, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 import ReactMarkdown from 'react-markdown';
@@ -59,9 +59,12 @@ interface AISidebarProps {
   onSpellingIssuesChange?: (issues: GrammarSpellingIssue[]) => void;
   onFactCheckIssuesChange?: (issues: FactCheckIssue[]) => void;
   manualFactCheckTrigger?: number;
+  onHighlightText?: (text: string) => void;
+  ignoredFactChecks?: Set<string>;
+  onIgnoredFactChecksChange?: (ignored: Set<string>) => void;
 }
 
-export default function AISidebar({ content, researchQuery, onResearchComplete, onSpellingIssuesChange, onFactCheckIssuesChange, manualFactCheckTrigger }: AISidebarProps) {
+export default function AISidebar({ content, researchQuery, onResearchComplete, onSpellingIssuesChange, onFactCheckIssuesChange, manualFactCheckTrigger, onHighlightText, ignoredFactChecks = new Set(), onIgnoredFactChecksChange }: AISidebarProps) {
   const [factCheckEnabled, setFactCheckEnabled] = useState(true);
   const [grammarCheckEnabled, setGrammarCheckEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -314,7 +317,28 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     setCurrentSession(null);
   };
 
+  // Function to generate a unique ID for fact-check issues
+  const generateFactCheckId = (issue: FactCheckIssue) => {
+    return `${issue.text}-${issue.issue}`.toLowerCase().replace(/\s+/g, '-');
+  };
 
+  // Function to ignore a fact-check issue
+  const ignoreFactCheck = (issue: FactCheckIssue) => {
+    const id = generateFactCheckId(issue);
+    const newIgnored = new Set([...ignoredFactChecks, id]);
+    onIgnoredFactChecksChange?.(newIgnored);
+  };
+
+  // Function to clear ignored fact-checks
+  const clearIgnoredFactChecks = () => {
+    onIgnoredFactChecksChange?.(new Set());
+  };
+
+  // Filter fact-check issues based on ignored state (only show non-ignored)
+  const filteredFactCheckIssues = factCheckIssues.filter(issue => {
+    const id = generateFactCheckId(issue);
+    return !ignoredFactChecks.has(id);
+  });
 
   return (
     <Card className="h-[704px] overflow-hidden bg-white text-gray-900 border-gray-200 shadow-lg">
@@ -385,6 +409,15 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   <DropdownMenuSeparator className="bg-gray-200" />
                   <DropdownMenuItem 
                     className="text-xs text-red-600 hover:bg-red-50"
+                    onClick={clearIgnoredFactChecks}
+                    disabled={ignoredFactChecks.size === 0}
+                  >
+                    <Trash2 className="h-3 w-3 mr-2" />
+                    Clear Ignored Fact Checks
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-gray-200" />
+                  <DropdownMenuItem 
+                    className="text-xs text-red-600 hover:bg-red-50"
                     onClick={clearHistory}
                     disabled={researchHistory.length === 0}
                   >
@@ -412,16 +445,16 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
               
               <div className="flex items-center space-x-2">
                 {/* Fact Check Notification */}
-                {factCheckEnabled && factCheckIssues.length > 0 && (
+                {factCheckEnabled && filteredFactCheckIssues.length > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowFactCheckDetails(!showFactCheckDetails)}
                     className="h-auto p-1 flex items-center space-x-1 text-xs text-red-600 hover:text-red-700"
-                    title={`Fact check errors: ${factCheckIssues.length}`}
+                    title={`Fact check errors: ${filteredFactCheckIssues.length}`}
                   >
                     <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    <span>{factCheckIssues.length}</span>
+                    <span>{filteredFactCheckIssues.length}</span>
                   </Button>
                 )}
 
@@ -440,7 +473,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                 )}
 
                 {/* No Issues - Green Dot */}
-                {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && lastCheckedContent.length > 0 && (
+                {factCheckEnabled && grammarCheckEnabled && filteredFactCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && lastCheckedContent.length > 0 && (
                   <div className="group relative">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50">
@@ -464,7 +497,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto space-y-3">
           {/* Empty State - Your Writing Co-pilot */}
-          {!summary && !isLoadingResearch && !isLoadingFactCheck && !isLoadingGrammarCheck && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length < 3 && (
+          {!summary && !isLoadingResearch && !isLoadingFactCheck && !isLoadingGrammarCheck && filteredFactCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length < 3 && (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
               <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                 <Search className="h-6 w-6 text-gray-400" />
@@ -541,7 +574,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col space-y-4">
             {/* Combined Issues Section - Unified scrollable list */}
-            {(grammarSpellingIssues.length > 0 || factCheckIssues.length > 0) && !isLoadingResearch && (
+            {(grammarSpellingIssues.length > 0 || filteredFactCheckIssues.length > 0) && !isLoadingResearch && (
               <div className={`${!summary ? 'flex-1 flex flex-col' : ''} border-t border-gray-200 pt-2`}>
                 <div className={`space-y-2 px-2 overflow-y-auto ${!summary ? 'flex-1' : 'max-h-64'}`}>
                   {/* Grammar/Spelling Issues */}
@@ -551,18 +584,28 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="bg-gray-50 hover:bg-gray-100 rounded-md p-3 space-y-2 cursor-pointer"
+                      onClick={() => {
+                        console.log('Grammar issue clicked:', issue.text);
+                        onHighlightText?.(issue.text);
+                      }}
                     >
                       <div className="flex items-start space-x-2">
                         <Badge 
-                          variant={issue.severity === 'error' ? 'destructive' : issue.severity === 'warning' ? 'secondary' : 'outline'}
-                          className="text-xs font-medium flex-shrink-0"
+                          variant="outline"
+                          className={`text-xs font-medium flex-shrink-0 ${
+                            issue.severity === 'error' 
+                              ? 'bg-red-50 text-red-600 border-red-200' 
+                              : issue.severity === 'warning' 
+                                ? 'bg-orange-50 text-orange-600 border-orange-200'
+                                : 'bg-gray-50 text-gray-600 border-gray-200'
+                          }`}
                         >
                           {issue.type}
                         </Badge>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-1">
                             <span className="text-xs text-gray-700 font-medium">&ldquo;</span>
-                            <span className="text-xs text-red-600 font-medium underline decoration-wavy decoration-red-400">{issue.text}</span>
+                            <span className="text-xs text-gray-900 font-medium underline decoration-wavy decoration-gray-400">{issue.text}</span>
                             <span className="text-xs text-gray-700 font-medium">&rdquo;</span>
                             {issue.position && issue.position.start !== issue.position.end && (
                               <span className="text-xs text-gray-400">@{issue.position.start}</span>
@@ -578,17 +621,27 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   ))}
                   
                   {/* Fact-Check Issues */}
-                  {factCheckEnabled && showFactCheckDetails && factCheckIssues.map((issue, index) => (
+                  {factCheckEnabled && showFactCheckDetails && filteredFactCheckIssues.map((issue, index) => (
                     <motion.div
                       key={`factcheck-${index}`}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-red-50 hover:bg-red-100 rounded-md p-3 space-y-2 cursor-pointer"
+                      className="bg-red-50 hover:bg-red-100 rounded-md p-3 space-y-2 cursor-pointer relative"
+                      onClick={() => {
+                        console.log('Fact check issue clicked:', issue.text);
+                        onHighlightText?.(issue.text);
+                      }}
                     >
                       <div className="flex items-start gap-2">
                         <Badge 
-                          variant={issue.confidence === 'HIGH' ? 'destructive' : 'secondary'}
-                          className="text-xs font-medium flex-shrink-0"
+                          variant="outline"
+                          className={`text-xs font-medium flex-shrink-0 ${
+                            issue.confidence === 'HIGH' 
+                              ? 'bg-red-50 text-red-600 border-red-200' 
+                              : issue.confidence === 'MEDIUM'
+                                ? 'bg-orange-50 text-orange-600 border-orange-200'
+                                : 'bg-gray-50 text-gray-600 border-gray-200'
+                          }`}
                         >
                           {issue.confidence}
                         </Badge>
@@ -596,6 +649,18 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                           <p className="text-xs text-gray-700 font-medium line-clamp-2">&ldquo;{issue.text}&rdquo;</p>
                           <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
                         </div>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            ignoreFactCheck(issue);
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600 hover:bg-gray-200 absolute top-2 right-2"
+                          title="Ignore this fact check"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
                       </div>
                     </motion.div>
                   ))}
@@ -680,7 +745,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           </div>
 
           {/* Subtle Co-pilot Messages */}
-          {factCheckEnabled && grammarCheckEnabled && factCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && !summary && lastCheckedContent.length > 0 && (
+          {factCheckEnabled && grammarCheckEnabled && filteredFactCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && !summary && lastCheckedContent.length > 0 && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: [0, 0.4, 0] }}

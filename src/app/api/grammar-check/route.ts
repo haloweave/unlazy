@@ -169,6 +169,7 @@ export async function POST(request: NextRequest) {
 
     // Smart LLM-based filtering to remove false positives
     let finalIssues = issues;
+    console.log(`Grammar check: Found ${issues.length} issues, attempting LLM filtering...`);
     if (issues.length > 0 && issues.length <= 20) { // Increased threshold for better filtering
       try {
         const { object } = await generateObject({
@@ -186,15 +187,18 @@ CRITICAL: Analyze the FULL CONTEXT to understand the subject matter (historical 
 Do NOT flag words that are contextually appropriate:
 
 GEOGRAPHICAL CONTEXT:
-- Place names, rivers, mountains, cities, regions (e.g., "Berezina" in Napoleon context)
+- Place names, rivers, mountains, cities, regions (e.g., "Berezina", "Balaklava")
+- Battle locations and historical sites
 - Foreign language terms appropriate to the location/culture being discussed
 - Regional spelling variants (British vs American, etc.)
 
 HISTORICAL CONTEXT:
 - Historical terms, titles, and organizations (e.g., "Grande Armée" for Napoleon's army)
+- Historical figures and their names/titles (e.g., "Lord Lucan", "Lord Cardigan", "Lord Raglan")
+- Battle names, military campaigns, and war-related terminology
 - Period-appropriate terminology and foreign words
-- Historical figures, battles, events, and locations
 - Military units, ranks, and formations from the historical period
+- Noble titles and aristocratic names from the historical period
 
 DOMAIN-SPECIFIC TERMINOLOGY:
 - Scientific/technical terms relevant to the subject matter
@@ -224,12 +228,15 @@ Return indices for actual spelling errors only.`
         });
 
         if (Array.isArray(object.validIndices)) {
+          console.log(`LLM filtering: ${object.validIndices.length} issues remain after filtering`);
           finalIssues = issues.filter((_, index) => object.validIndices.includes(index));
         }
       } catch (error) {
         console.warn('LLM filtering failed, using original results:', error);
         // Fall back to original issues if filtering fails
       }
+    } else {
+      console.log(`Skipping LLM filtering: ${issues.length} issues (threshold: ≤20)`);
     }
 
     return NextResponse.json({ 
