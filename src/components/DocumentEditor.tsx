@@ -193,7 +193,6 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
   const alignPickerRef = useRef<HTMLDivElement>(null)
   const selectionTimeout = useRef<NodeJS.Timeout | null>(null)
   const hideTimeout = useRef<NodeJS.Timeout | null>(null)
-  const [highlightTimeout, setHighlightTimeout] = useState<NodeJS.Timeout | null>(null)
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -355,41 +354,13 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     }
   }, [content, editor])
 
-  // Handle text highlighting when clicked from sidebar
+  // Handle text selection when clicked from sidebar
   useEffect(() => {
     if (!highlightText || !editor) return
 
     const { text } = highlightText
     
-    // Clear any existing highlight timeout
-    if (highlightTimeout) {
-      clearTimeout(highlightTimeout)
-      setHighlightTimeout(null)
-    }
-
-    // Remove any existing highlights first
-    const existingStyle = document.getElementById('temp-highlight-style')
-    if (existingStyle) existingStyle.remove()
-
-    // Add temporary highlight CSS to the editor container
-    const style = document.createElement('style')
-    style.id = 'temp-highlight-style'
-    style.textContent = `
-      .temp-highlight {
-        background-color: #fefce8 !important;
-        color: #a16207 !important;
-        padding: 2px 4px !important;
-        border-radius: 3px !important;
-        transition: all 0.3s ease !important;
-      }
-      .temp-highlight-fade {
-        background-color: transparent !important;
-        color: inherit !important;
-      }
-    `
-    document.head.appendChild(style)
-
-    // Find and highlight the text using editor selection
+    // Find and select the text in the editor
     const doc = editor.state.doc
     let found = false
     
@@ -404,38 +375,13 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
           const from = pos + index
           const to = pos + index + text.length
           
-          console.log('Found text at position:', from, 'to', to)
-          
-          // Create a span element with highlight class
-          const highlightNode = document.createElement('span')
-          highlightNode.className = 'temp-highlight'
-          highlightNode.textContent = text
-          
-          // Use editor commands to apply highlight
+          // Select the text
           editor.chain()
             .focus()
             .setTextSelection({ from, to })
-            .setHighlight({ color: '#fefce8' })
             .run()
           
           found = true
-          
-          // Fade out after 2 seconds
-          const timeout = setTimeout(() => {
-            // Remove highlight using editor commands
-            editor.chain()
-              .focus()
-              .setTextSelection({ from, to })
-              .unsetHighlight()
-              .run()
-              
-            // Remove the style element
-            const styleEl = document.getElementById('temp-highlight-style')
-            if (styleEl) styleEl.remove()
-            setHighlightTimeout(null)
-          }, 2000)
-
-          setHighlightTimeout(timeout)
           return false // Stop searching once found
         }
       }
@@ -443,11 +389,8 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     
     if (!found) {
       console.log('Text not found in document:', text)
-      // Remove style if no text was found
-      const styleEl = document.getElementById('temp-highlight-style')
-      if (styleEl) styleEl.remove()
     }
-  }, [highlightText, editor]) // highlightTimeout intentionally excluded to prevent infinite loops
+  }, [highlightText, editor])
 
   // Update error decorations when issues change
   useEffect(() => {
@@ -473,12 +416,6 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       if (selectionTimeout.current) {
         clearTimeout(selectionTimeout.current)
       }
-      if (highlightTimeout) {
-        clearTimeout(highlightTimeout)
-      }
-      // Clean up any existing highlights
-      const existingStyle = document.getElementById('temp-highlight-style')
-      if (existingStyle) existingStyle.remove()
     }
   }, [])
 
