@@ -746,23 +746,25 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
 
           {/* Subtle Co-pilot Messages */}
           {factCheckEnabled && grammarCheckEnabled && filteredFactCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && !summary && lastCheckedContent.length > 0 && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 0.4, 0] }}
-              transition={{ duration: 3, repeat: Infinity, repeatDelay: 5 }}
-              className="text-center py-8"
-            >
-              <p className="text-xs text-gray-400">
-                {[
-                  "watching you type...",
-                  "keeping an eye on things...",
-                  "quietly checking...",
-                  "standing by...",
-                  "all looks good...",
-                  "smooth sailing..."
-                ][Math.floor(Date.now() / 10000) % 6]}
-              </p>
-            </motion.div>
+            <div className="flex-1 flex items-center justify-center">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.7, 0] }}
+                transition={{ duration: 3, repeat: Infinity, repeatDelay: 4 }}
+                className="text-center"
+              >
+                <p className="text-xs text-gray-500">
+                  {[
+                    "watching you type...",
+                    "keeping an eye on things...",
+                    "quietly checking...",
+                    "standing by...",
+                    "all looks good...",
+                    "smooth sailing..."
+                  ][Math.floor(Date.now() / 10000) % 6]}
+                </p>
+              </motion.div>
+            </div>
           )}
         </div>
         
