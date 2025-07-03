@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { GrammarSpellingIssue } from '@/app/api/grammar-check/route';
 
 export interface FactCheckIssue {
   text: string;
@@ -26,15 +27,6 @@ export interface FactCheckIssue {
   suggestion: string;
   category?: string;
   importance?: 'critical' | 'moderate' | 'minor';
-}
-
-interface GrammarSpellingIssue {
-  text: string;
-  type: 'grammar' | 'spelling';
-  issue: string;
-  suggestion: string;
-  severity: 'error' | 'warning' | 'suggestion';
-  position?: { start: number; end: number };
 }
 
 interface ResearchSource {
