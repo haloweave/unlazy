@@ -1,0 +1,19 @@
+
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "factcheck",
+    "factchecking",
+    "copilot",
+    "realtime"
+  ],
+  "dictionaries": [
+    "en_US",
+    "en-gb",
+    "companies",
+    "softwareTerms",
+    "misc"
+  ],
+  "ignorePaths": ["node_modules/**"]
+}
