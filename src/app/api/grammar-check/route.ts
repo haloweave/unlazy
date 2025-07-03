@@ -8,7 +8,6 @@ import retextReadability from 'retext-readability';
 import { openai } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import en from 'dictionary-en';
 
 export interface GrammarSpellingIssue {
   text: string;
@@ -64,13 +63,26 @@ export async function POST(request: NextRequest) {
       return suggestions.slice(0, 3).join(', ');
     };
 
-    // Create processor with spell checking
-    const processor = retext()
-      .use(retextEnglish)
-      .use(retextSpell, en)
-      .use(retextRepeatedWords)
-      .use(retextPassive)
-      .use(retextReadability, { age: 16 });
+    // Create processor with spell checking (with fallback)
+    let processor;
+    try {
+      // Try to load dictionary dynamically
+      const { default: en } = await import('dictionary-en');
+      processor = retext()
+        .use(retextEnglish)
+        .use(retextSpell, en)
+        .use(retextRepeatedWords)
+        .use(retextPassive)
+        .use(retextReadability, { age: 16 });
+      console.log('Grammar check: Spell checker loaded successfully');
+    } catch (error) {
+      console.warn('Could not load spell checker dictionary, falling back to grammar-only checking');
+      processor = retext()
+        .use(retextEnglish)
+        .use(retextRepeatedWords)
+        .use(retextPassive)
+        .use(retextReadability, { age: 16 });
+    }
 
     const file = await processor.process(plainText);
 

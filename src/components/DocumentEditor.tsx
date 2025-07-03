@@ -447,7 +447,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       const styleEl = document.getElementById('temp-highlight-style')
       if (styleEl) styleEl.remove()
     }
-  }, [highlightText, editor])
+  }, [highlightText, editor]) // highlightTimeout intentionally excluded to prevent infinite loops
 
   // Update error decorations when issues change
   useEffect(() => {
