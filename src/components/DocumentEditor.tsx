@@ -376,8 +376,8 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     style.id = 'temp-highlight-style'
     style.textContent = `
       .temp-highlight {
-        background-color: #000000 !important;
-        color: white !important;
+        background-color: #fefce8 !important;
+        color: #a16207 !important;
         padding: 2px 4px !important;
         border-radius: 3px !important;
         transition: all 0.3s ease !important;
@@ -415,7 +415,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
           editor.chain()
             .focus()
             .setTextSelection({ from, to })
-            .setHighlight({ color: '#000000' })
+            .setHighlight({ color: '#fefce8' })
             .run()
           
           found = true
