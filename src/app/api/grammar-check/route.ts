@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 export interface GrammarSpellingIssue {
   text: string;
-  type: 'grammar' | 'spelling';
+  type: 'spelling';
   issue: string;
   suggestion: string;
   severity: 'error' | 'warning' | 'suggestion';
@@ -39,10 +39,10 @@ export async function POST(request: NextRequest) {
     const { object: issuesObject } = await generateObject({
       model: openai('gpt-4o-mini'),
       prompt: `
-        You are an expert in English grammar and spelling.
-        Analyze the following text and identify any grammar or spelling errors.
-        For each error, provide the incorrect text, the type of error (grammar or spelling), a brief description of the issue, a suggested correction, and the severity of the error.
-        The severity should be 'error' for clear mistakes, 'warning' for potential issues, and 'suggestion' for stylistic improvements.
+        You are an expert in English spelling.
+        Analyze the following text and identify any spelling errors.
+        For each error, provide the incorrect text, a brief description of the issue, a suggested correction, and the severity of the error.
+        The severity should be 'error' for clear mistakes.
         Return the issues as a JSON object with a single key "issues" that contains an array of issue objects.
         If there are no issues, return an empty array.
 
@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
         issues: z.array(
           z.object({
             text: z.string(),
-            type: z.enum(['grammar', 'spelling']),
             issue: z.string(),
             suggestion: z.string(),
             severity: z.enum(['error', 'warning', 'suggestion']),
@@ -69,6 +68,7 @@ export async function POST(request: NextRequest) {
       const end = start + issue.text.length;
       return {
         ...issue,
+        type: 'spelling',
         position: start !== -1 ? { start, end } : undefined,
       };
     });
