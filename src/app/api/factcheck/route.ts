@@ -77,8 +77,9 @@ IMPORTANT RULES:
 4. Provide confidence levels: HIGH (definitely wrong), MEDIUM (likely wrong/questionable), LOW (needs verification)
 5. Be definitive and assertive - state what's wrong, don't just suggest verification
 6. For HIGH confidence issues: State the correct fact, don't ask to verify
-7. CRITICAL: Limit to maximum 15 issues for comprehensive analysis
-8. Prioritize the most egregious factual errors
+7. Your suggested correction MUST be the most precise and factually accurate statement possible. It must be definitive and not require further correction. For example, if correcting a height, name the specific species (e.g., 'The Emperor Penguin grows to 1.2m'). This prevents correction loops.
+8. CRITICAL: Limit to maximum 15 issues for comprehensive analysis
+9. Prioritize the most egregious factual errors
 
 Examples of good responses:
 - HIGH: "Birds cannot meow - they chirp, tweet, or make other bird sounds"

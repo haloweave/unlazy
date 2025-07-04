@@ -616,7 +616,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   {/* Fact-Check Issues */}
                   {factCheckEnabled && showFactCheckDetails && filteredFactCheckIssues.map((issue, index) => (
                     <motion.div
-                      key={`factcheck-${index}`}
+                      key={generateFactCheckId(issue)}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="bg-red-50 hover:bg-red-100 rounded-md p-3 space-y-2 cursor-pointer relative"
