@@ -5,9 +5,27 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 import crypto from 'crypto';
 
+// Types for fact-check results
+interface FactCheckIssue {
+  text: string;
+  issue: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  suggestion: string;
+  category?: string;
+  importance?: 'critical' | 'moderate' | 'minor';
+}
+
+interface DetailedFactCheckResult {
+  summary: string;
+  issues: FactCheckIssue[];
+  verificationNeeded: string[];
+}
+
+type FactCheckResult = FactCheckIssue[] | DetailedFactCheckResult;
+
 // In-memory cache for fact-check results (in production, use Redis or database)
 const factCheckCache = new Map<string, {
-  result: any;
+  result: FactCheckResult;
   timestamp: number;
   expiresAt: number;
 }>();

@@ -28,6 +28,41 @@ function generateContentHash(content: string): string {
   return crypto.createHash('sha256').update(content.trim().toLowerCase()).digest('hex');
 }
 
+// Calculate similarity between two strings (0 = completely different, 1 = identical)
+function calculateSimilarity(str1: string, str2: string): number {
+  if (str1 === str2) return 1;
+  if (!str1 || !str2) return 0;
+  
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  
+  if (longer.length === 0) return 1;
+  
+  const editDistance = levenshteinDistance(longer, shorter);
+  return (longer.length - editDistance) / longer.length;
+}
+
+// Calculate Levenshtein distance between two strings
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+  
+  for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+  
+  for (let j = 1; j <= str2.length; j++) {
+    for (let i = 1; i <= str1.length; i++) {
+      const substitutionCost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // insertion
+        matrix[j - 1][i] + 1, // deletion
+        matrix[j - 1][i - 1] + substitutionCost // substitution
+      );
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { content, recentlyFixed = [] } = await request.json();
@@ -72,32 +107,34 @@ export async function POST(request: NextRequest) {
     const { object: issuesObject } = await generateObject({
       model: openai('gpt-4o-mini'),
       prompt: `
-        You are a proofreader focused EXCLUSIVELY on spelling and grammar.
+        You are a strict spelling and grammar checker. ONLY flag actual errors.
         
-        CRITICAL: Assume ALL content is fictional/creative writing. DO NOT fact-check anything.
+        STRICT RULES:
+        1. ONLY flag OBVIOUS misspellings (e.g., "recieve" → "receive", "teh" → "the")
+        2. ONLY flag clear grammar errors (e.g., "he don't" → "he doesn't")
+        3. DO NOT flag common words like: today, awesome, feels, life, much, less, typically, etc.
+        4. DO NOT flag proper nouns, names, places, or technical terms
+        5. DO NOT suggest the same text as a correction
+        6. Be very conservative - when in doubt, DON'T flag it
         
-        ONLY flag these types of errors:
-        1. Misspelled words (e.g., "recieve" → "receive")
-        2. Grammar errors (e.g., "he don't" → "he doesn't")
-        3. Punctuation mistakes (e.g., "Hello world" → "Hello, world")
-        4. Verb tense errors (e.g., "I goed" → "I went")
-        5. Subject-verb disagreement (e.g., "The cats is" → "The cats are")
+        Examples of what TO flag:
+        - "fantsstc" → "fantastic" (clear misspelling)
+        - "dat" → "day" (clear misspelling)
+        - "lif" → "life" (clear misspelling)
+        - "he don't go" → "he doesn't go" (grammar error)
         
-        NEVER flag these (even if factually wrong):
-        - Names, places, dates, historical events
-        - Scientific claims or measurements
-        - Any content-related information
-        - Proper nouns
+        Examples of what NOT to flag:
+        - "awesome" (correct spelling)
+        - "feels" (correct spelling)
+        - "today" (correct spelling)
+        - "much less than 1 kilogram" (correct)
+        - Any proper nouns or technical terms
         
-        Think of this as proofreading a fantasy novel - check the language, not the facts.
-        
-        Examples from your text:
-        - "Emperor Napoleon" - This is a proper noun, do NOT flag
-        - "5th century AD" - This is a date format, do NOT flag
-        - "chocolate bricks" - This is creative content, do NOT flag
-        - "Tokyo" - This is a place name, do NOT flag
-        
-        Only return spelling/grammar errors. If the text has perfect spelling and grammar, return empty array.
+        CRITICAL RULES:
+        - If your suggestion is identical to the original text, DO NOT include it
+        - If the text has no errors, return an empty array - do NOT create fake issues
+        - NEVER suggest "No issues found" or "Correct as is" - just return empty array
+        - Only flag text if there is a CLEAR, OBVIOUS error that needs fixing
 
         Text to analyze:
         ---
@@ -118,10 +155,63 @@ export async function POST(request: NextRequest) {
 
     console.log('Grammar check raw AI response:', JSON.stringify(issuesObject, null, 2));
 
-    // Filter out any issues that mention factual inaccuracies or content-related problems
+    // Filter out problematic issues
     const filteredIssues = issuesObject.issues.filter(issue => {
       const issueText = issue.issue.toLowerCase();
       const suggestionText = issue.suggestion.toLowerCase();
+      const originalText = issue.text.toLowerCase().trim();
+      const suggestedText = issue.suggestion.toLowerCase().trim();
+      
+      // Filter out self-referential suggestions (suggestion same as original)
+      const normalizedOriginal = originalText.replace(/[^\w\s]/g, '').trim();
+      const normalizedSuggestion = suggestedText.replace(/[^\w\s]/g, '').trim();
+      
+      if (normalizedOriginal === normalizedSuggestion) {
+        console.log('Filtered out self-referential issue:', issue);
+        return false;
+      }
+      
+      // Filter out issues where the suggestion contains the entire original text
+      if (suggestionText.includes(originalText) && suggestionText.length > originalText.length * 1.2) {
+        console.log('Filtered out sentence-level suggestion:', issue);
+        return false;
+      }
+      
+      // Filter out suggestions that are just the original text with minor punctuation changes
+      const similarity = calculateSimilarity(normalizedOriginal, normalizedSuggestion);
+      if (similarity > 0.95) {
+        console.log('Filtered out highly similar suggestion:', issue, 'similarity:', similarity);
+        return false;
+      }
+      
+      // Filter out unhelpful suggestions
+      const unhelpfulSuggestions = [
+        'no issues found', 'no issues', 'no errors found', 'no errors', 'correct as is',
+        'looks good', 'appears correct', 'no changes needed', 'no correction needed',
+        'this is correct', 'already correct', 'text is correct', 'spelling is correct',
+        'no problems', 'no spelling errors', 'no grammar errors'
+      ];
+      
+      const isUnhelpful = unhelpfulSuggestions.some(phrase => 
+        suggestionText.includes(phrase)
+      );
+      
+      if (isUnhelpful) {
+        console.log('Filtered out unhelpful suggestion:', issue);
+        return false;
+      }
+      
+      // Filter out common words that shouldn't be flagged
+      const commonWords = [
+        'today', 'awesome', 'feels', 'life', 'much', 'less', 'typically', 'weigh',
+        'hummingbirds', 'kilogram', 'faster', 'creature', 'earth', 'dive', 'emperor',
+        'penguins', 'depths', 'meters', 'birds', 'legs', 'balance', 'flight', 'walking'
+      ];
+      
+      if (commonWords.includes(originalText)) {
+        console.log('Filtered out common word:', issue);
+        return false;
+      }
       
       // Check for factual/content-related keywords
       const factualKeywords = [
