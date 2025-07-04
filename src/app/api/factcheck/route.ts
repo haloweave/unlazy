@@ -3,6 +3,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { openai } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +33,8 @@ export async function POST(request: NextRequest) {
     if (!plainText || plainText.trim().length === 0) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
     }
+
+    console.log('Plain text sent to AI model:', plainText);
 
     // Define schemas for different modes
     const realtimeSchema = z.object({
@@ -96,7 +99,8 @@ If no issues found, return empty issues array.`
           maxTokens,
           temperature: 0.1,
         });
-        result = realtimeResult.issues;
+        // Filter to only HIGH confidence issues
+        result = realtimeResult.issues.filter(issue => issue.confidence === 'HIGH');
         break;
 
       case 'detailed':
@@ -126,7 +130,11 @@ For each issue, provide detailed analysis with confidence levels and importance 
           maxTokens,
           temperature: 0.1,
         });
-        result = detailedResult;
+        // Filter to only HIGH confidence issues for detailed mode too
+        result = {
+          ...detailedResult,
+          issues: detailedResult.issues.filter(issue => issue.confidence === 'HIGH')
+        };
         break;
 
       default:
@@ -143,9 +151,10 @@ For each issue, provide detailed analysis with confidence levels and importance 
 
   } catch (error) {
     console.error('Error in fact-check API:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)) // Log full error object
     }, { status: 500 });
   }
 }

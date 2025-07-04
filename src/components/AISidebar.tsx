@@ -73,6 +73,9 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
   const [researchHistory, setResearchHistory] = useState<ResearchSession[]>([]);
   const [currentSessionIndex, setCurrentSessionIndex] = useState<number>(-1);
   const [lastCheckedContent, setLastCheckedContent] = useState('');
+  const [resolvedFactCheckTexts, setResolvedFactCheckTexts] = useState<Set<string>>(new Set());
+  const [recentlyFixedGrammarTexts, setRecentlyFixedGrammarTexts] = useState<string[]>([]);
+
   // Store current session data to restore when switching back
   const [currentSession, setCurrentSession] = useState<{
     query: string;
@@ -147,19 +150,24 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
 
   // Fact checking functionality
   const performFactCheck = useCallback(async (text: string) => {
-    // Use word count instead of character count for consistency
-    const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
-    if (!text || wordCount < 3 || !factCheckEnabled) {
+    const textToFactCheck = text
+      .split(/\n|(?<=[.?!])\s+/)
+      .filter(sentence => !resolvedFactCheckTexts.has(sentence.trim()))
+      .join(' ');
+
+    const wordCount = textToFactCheck.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (!textToFactCheck || wordCount < 3 || !factCheckEnabled) {
       setFactCheckIssues([]);
       return;
     }
 
+    console.log('Sending to fact-check API:', textToFactCheck);
     setIsLoadingFactCheck(true);
     try {
       const response = await fetch('/api/factcheck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text, mode: 'realtime' }),
+        body: JSON.stringify({ content: textToFactCheck, mode: 'realtime' }),
       });
 
       if (!response.ok) throw new Error('Fact-check request failed');
@@ -176,7 +184,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     } finally {
       setIsLoadingFactCheck(false);
     }
-  }, [factCheckEnabled, setFactCheckIssues, setIsLoadingFactCheck, onFactCheckIssuesChange]);
+  }, [factCheckEnabled, setFactCheckIssues, setIsLoadingFactCheck, onFactCheckIssuesChange, resolvedFactCheckTexts]);
 
   // Grammar and spelling checking functionality
   const performGrammarCheck = useCallback(async (text: string) => {
@@ -192,7 +200,10 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
       const response = await fetch('/api/grammar-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ 
+          content: text,
+          recentlyFixed: recentlyFixedGrammarTexts 
+        }),
       });
 
       if (!response.ok) throw new Error('Spell check request failed');
@@ -216,7 +227,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     } finally {
       setIsLoadingGrammarCheck(false);
     }
-  }, [grammarCheckEnabled, setGrammarSpellingIssues, setIsLoadingGrammarCheck, onSpellingIssuesChange]);
+  }, [grammarCheckEnabled, setGrammarSpellingIssues, setIsLoadingGrammarCheck, onSpellingIssuesChange, recentlyFixedGrammarTexts]);
 
   // Debounced version of the fact check function
   const debouncedFactCheck = useMemo(
@@ -250,13 +261,38 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
       const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
       
       if (textContent !== lastTextContent && wordCount >= 2) {
+        // Check if any existing issues were fixed in this update
+        const currentIssueTexts = grammarSpellingIssues.map(issue => issue.text.toLowerCase().trim());
+        const fixedTexts = currentIssueTexts.filter(issueText => 
+          !textContent.toLowerCase().includes(issueText)
+        );
+        
+        if (fixedTexts.length > 0) {
+          setRecentlyFixedGrammarTexts(prev => {
+            const newFixed = [...prev, ...fixedTexts];
+            // Keep only the last 10 fixed items to prevent memory buildup
+            return newFixed.slice(-10);
+          });
+        }
+        
         debouncedGrammarCheck(content);
         setLastCheckedContent(content);
       }
     } else {
       setGrammarSpellingIssues([]);
     }
-  }, [content, grammarCheckEnabled, debouncedGrammarCheck, lastCheckedContent]);
+  }, [content, grammarCheckEnabled, debouncedGrammarCheck, lastCheckedContent, grammarSpellingIssues]);
+
+  // Clear recently fixed texts after 30 seconds to allow new checks
+  useEffect(() => {
+    if (recentlyFixedGrammarTexts.length > 0) {
+      const timer = setTimeout(() => {
+        setRecentlyFixedGrammarTexts([]);
+      }, 30000); // Clear after 30 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [recentlyFixedGrammarTexts]);
 
   // Handle incoming research queries from document editor
   useEffect(() => {
@@ -320,14 +356,16 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     const id = generateFactCheckId(issue);
     const newIgnored = new Set([...ignoredFactChecks, id]);
     onIgnoredFactChecksChange?.(newIgnored);
+    setResolvedFactCheckTexts(prev => new Set(prev).add(issue.text.trim()).add(issue.suggestion.trim()));
   };
 
   // Function to clear ignored fact-checks
   const clearIgnoredFactChecks = () => {
     onIgnoredFactChecksChange?.(new Set());
+    setResolvedFactCheckTexts(new Set());
   };
 
-  // Filter fact-check issues based on ignored state (only show non-ignored)
+  // Filter fact-check issues based on ignored state (API already filters to HIGH confidence only)
   const filteredFactCheckIssues = factCheckIssues.filter(issue => {
     const id = generateFactCheckId(issue);
     return !ignoredFactChecks.has(id);
