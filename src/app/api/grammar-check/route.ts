@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import crypto from 'crypto';
 
 export interface GrammarSpellingIssue {
   text: string;
@@ -10,6 +11,21 @@ export interface GrammarSpellingIssue {
   suggestion: string;
   severity: 'error' | 'warning' | 'suggestion';
   position?: { start: number; end: number };
+}
+
+// In-memory cache for grammar check results
+const grammarCheckCache = new Map<string, {
+  result: GrammarSpellingIssue[];
+  timestamp: number;
+  expiresAt: number;
+}>();
+
+// Cache TTL: 1 hour for grammar checks (shorter than fact checks)
+const GRAMMAR_CACHE_TTL = 60 * 60 * 1000;
+
+// Generate content hash for caching
+function generateContentHash(content: string): string {
+  return crypto.createHash('sha256').update(content.trim().toLowerCase()).digest('hex');
 }
 
 export async function POST(request: NextRequest) {
@@ -34,6 +50,20 @@ export async function POST(request: NextRequest) {
 
     if (!plainText || plainText.length < 2) {
       return NextResponse.json({ issues: [] });
+    }
+
+    // Generate content hash for caching
+    const contentHash = generateContentHash(plainText);
+    
+    // Check cache first
+    const cached = grammarCheckCache.get(contentHash);
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log('Returning cached grammar-check result for hash:', contentHash);
+      return NextResponse.json({
+        issues: cached.result,
+        message: 'Grammar check completed (cached)',
+        cached: true
+      });
     }
 
     console.log('Grammar check input text:', plainText);
@@ -139,9 +169,26 @@ export async function POST(request: NextRequest) {
     console.log('Grammar check final issues count:', issues.length);
     console.log('Grammar check final issues:', JSON.stringify(issues, null, 2));
 
+    // Store result in cache
+    grammarCheckCache.set(contentHash, {
+      result: issues,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + GRAMMAR_CACHE_TTL
+    });
+
+    // Clean up expired cache entries
+    for (const [key, value] of grammarCheckCache.entries()) {
+      if (value.expiresAt < Date.now()) {
+        grammarCheckCache.delete(key);
+      }
+    }
+
+    console.log('Grammar check completed, result cached with hash:', contentHash);
+
     return NextResponse.json({
       issues,
-      message: 'Spelling check completed'
+      message: 'Grammar check completed',
+      cached: false
     });
 
   } catch (error) {

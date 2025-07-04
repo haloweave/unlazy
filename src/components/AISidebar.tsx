@@ -351,12 +351,34 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     return `${issue.text}-${issue.issue}`.toLowerCase().replace(/\s+/g, '-');
   };
 
+  // Function to send user feedback for corrections
+  const sendUserFeedback = async (correctionType: 'accepted' | 'rejected' | 'ignored', originalText: string, correctedText: string) => {
+    try {
+      await fetch('/api/factcheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userFeedback: {
+            correctionType,
+            originalText,
+            correctedText
+          }
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to send user feedback:', error);
+    }
+  };
+
   // Function to ignore a fact-check issue
   const ignoreFactCheck = (issue: FactCheckIssue) => {
     const id = generateFactCheckId(issue);
     const newIgnored = new Set([...ignoredFactChecks, id]);
     onIgnoredFactChecksChange?.(newIgnored);
     setResolvedFactCheckTexts(prev => new Set(prev).add(issue.text.trim()).add(issue.suggestion.trim()));
+    
+    // Send feedback to API
+    sendUserFeedback('ignored', issue.text, issue.suggestion);
   };
 
   // Function to clear ignored fact-checks
