@@ -48,15 +48,71 @@ function generateContentHash(content: string): string {
   return crypto.createHash('sha256').update(content.trim().toLowerCase()).digest('hex');
 }
 
-// Stable correction templates to prevent hallucination
-const correctionTemplates = {
-  'great wall location': 'The Great Wall of China is located in China, not in other countries',
-  'great wall length': 'The Great Wall of China stretches over 21,000 kilometers',
-  'great wall materials': 'The Great Wall of China is made of stone, brick, tamped earth, and other traditional materials',
-  'great wall builders': 'The Great Wall of China was built over several dynasties, primarily the Qin, Han, and Ming dynasties',
-  'great wall purpose': 'The Great Wall of China was built to protect against invasions from northern nomadic groups',
-  'great wall timeframe': 'The Great Wall of China was built over many centuries, starting as early as the 7th century BC'
-};
+// General patterns for identifying over-specific corrections
+const OVER_SPECIFIC_PATTERNS = [
+  /\d{4,}\s*(km|kilometers|miles|meters|feet|years|people|dollars)/i, // Specific numbers
+  /exactly\s+\d+/i, // "exactly X"
+  /precisely\s+\d+/i, // "precisely X"
+  /\d+\.\d+\s*(km|meters|years|percent)/i, // Decimal numbers
+  /\d+,\d+/i, // Comma-separated numbers like "21,196"
+  /between\s+\d+\s+and\s+\d+/i, // Specific ranges
+  /approximately\s+\d{4,}/i, // "approximately" with specific numbers
+];
+
+// Detect if a suggestion is overly specific/precise
+function isOverlySpecific(suggestion: string): boolean {
+  return OVER_SPECIFIC_PATTERNS.some(pattern => pattern.test(suggestion));
+}
+
+// Generalize overly specific suggestions
+async function generalizeSpecificSuggestion(suggestion: string, originalText: string): Promise<string> {
+  try {
+    const { object: result } = await generateObject({
+      model: openai('gpt-4o-mini'),
+      schema: z.object({
+        generalizedSuggestion: z.string()
+      }),
+      messages: [
+        {
+          role: "system",
+          content: `You are a correction generalizer. Take overly specific/precise corrections and make them more general and less likely to be wrong.
+
+RULES:
+1. Replace specific numbers with general ranges (e.g., "21,196 km" → "over 21,000 km")
+2. Replace exact dates with general periods (e.g., "220 BC" → "around 3rd century BC")
+3. Keep corrections truthful but less precise
+4. Use words like "over", "around", "approximately", "many", "several"
+5. Avoid exact measurements, dates, or counts
+
+Examples:
+- "21,196 kilometers" → "over 21,000 kilometers"
+- "built in 220 BC" → "built over many centuries"
+- "weighs exactly 2.5 kg" → "weighs around 2-3 kg"
+- "costs $1,234.56" → "costs over $1,000"
+- "built by Emperor Qin in 220 BC" → "built by Chinese dynasties over many centuries"`
+        },
+        {
+          role: "user",
+          content: `Original text: "${originalText}"
+Overly specific suggestion: "${suggestion}"
+
+Please provide a more general version of this suggestion:`
+        }
+      ],
+      temperature: 0.1,
+    });
+
+    return result.generalizedSuggestion;
+  } catch (error) {
+    console.error('Error generalizing suggestion:', error);
+    // Fallback: simple pattern-based generalization
+    return suggestion
+      .replace(/\d{4,}\s*(km|kilometers)/gi, 'over $1')
+      .replace(/exactly\s+\d+/gi, 'around')
+      .replace(/precisely\s+\d+/gi, 'approximately')
+      .replace(/\d+,\d+/g, 'over');
+  }
+}
 
 // Check semantic similarity to avoid re-flagging corrections
 function checkSemanticSimilarity(text1: string, text2: string): boolean {
@@ -71,6 +127,39 @@ function checkSemanticSimilarity(text1: string, text2: string): boolean {
   const union = new Set([...words1, ...words2]);
   
   return intersection.size / union.size > 0.7; // 70% similarity threshold
+}
+
+// Additional hallucination detection patterns
+const HALLUCINATION_INDICATORS = [
+  /\b\d{1,2}:\d{2}\s*(AM|PM)\b/i, // Specific times
+  /on\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i, // Specific days
+  /in\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}/i, // Specific months/years
+  /\$\d+\.\d{2}\b/i, // Exact dollar amounts
+  /\b\d+\s*%\s*of\b/i, // Specific percentages
+  /weighs?\s+exactly\s+\d+/i, // Exact weights
+  /measures?\s+exactly\s+\d+/i, // Exact measurements
+  /according\s+to\s+[a-z\s]+\s+study/i, // Fake study references
+  /research\s+shows\s+that/i, // Vague research claims
+];
+
+// Detect potential AI hallucination in suggestions
+function containsHallucination(suggestion: string): boolean {
+  return HALLUCINATION_INDICATORS.some(pattern => pattern.test(suggestion));
+}
+
+// Detect if suggestion is making up "facts" not present in original
+function isMakingUpFacts(originalText: string, suggestion: string): boolean {
+  const originalWords = new Set(originalText.toLowerCase().split(/\W+/));
+  const suggestionWords = suggestion.toLowerCase().split(/\W+/);
+  
+  // Count how many new "factual" words are introduced
+  const factualWords = ['emperor', 'dynasty', 'century', 'bc', 'ad', 'built', 'constructed', 'located', 'made', 'consists'];
+  const newFactualWords = suggestionWords.filter(word => 
+    factualWords.includes(word) && !originalWords.has(word)
+  );
+  
+  // If suggestion introduces many new factual terms, it might be hallucinating
+  return newFactualWords.length > 2;
 }
 
 export async function POST(request: NextRequest) {
@@ -237,29 +326,35 @@ If uncertain about ANY detail, return empty array.`
           maxTokens,
           temperature: 0.1,
         });
-        // Filter to only HIGH confidence issues and apply stable corrections
-        const highConfidenceIssues = realtimeResult.issues.filter(issue => issue.confidence === 'HIGH');
-        
-        // Apply stable correction templates to prevent hallucination
-        result = highConfidenceIssues.map(issue => {
-          const text = issue.text.toLowerCase();
+        // Filter to only HIGH confidence issues and apply comprehensive anti-hallucination filtering
+        const highConfidenceIssues = realtimeResult.issues.filter(issue => {
+          // Basic confidence filter
+          if (issue.confidence !== 'HIGH') return false;
           
-          // Check for known patterns and use stable corrections
-          if (text.includes('great wall') && text.includes('tokyo')) {
-            return { ...issue, suggestion: correctionTemplates['great wall location'] };
-          }
-          if (text.includes('great wall') && (text.includes('21,196') || text.includes('specific'))) {
-            return { ...issue, suggestion: correctionTemplates['great wall length'] };
-          }
-          if (text.includes('great wall') && text.includes('chocolate')) {
-            return { ...issue, suggestion: correctionTemplates['great wall materials'] };
-          }
-          if (text.includes('great wall') && text.includes('napoleon')) {
-            return { ...issue, suggestion: correctionTemplates['great wall builders'] };
+          // Filter out hallucinated suggestions
+          if (containsHallucination(issue.suggestion)) {
+            console.log('Filtered out hallucinated suggestion:', issue.suggestion);
+            return false;
           }
           
-          return issue;
+          // Filter out suggestions that make up facts not in original
+          if (isMakingUpFacts(issue.text, issue.suggestion)) {
+            console.log('Filtered out fact-making suggestion:', issue.suggestion);
+            return false;
+          }
+          
+          return true;
         });
+        
+        // Generalize overly specific suggestions to prevent precision hallucination
+        result = await Promise.all(highConfidenceIssues.map(async issue => {
+          if (isOverlySpecific(issue.suggestion)) {
+            console.log('Detected overly specific suggestion, generalizing:', issue.suggestion);
+            const generalizedSuggestion = await generalizeSpecificSuggestion(issue.suggestion, issue.text);
+            return { ...issue, suggestion: generalizedSuggestion };
+          }
+          return issue;
+        }));
         break;
 
       case 'detailed':
@@ -289,33 +384,39 @@ For each issue, provide detailed analysis with confidence levels and importance 
           maxTokens,
           temperature: 0.1,
         });
-        // Filter to only HIGH confidence issues for detailed mode too and apply templates
-        const detailedHighConfidenceIssues = detailedResult.issues.filter(issue => issue.confidence === 'HIGH');
-        
-        // Apply stable correction templates for detailed mode too
-        const stableDetailedIssues = detailedHighConfidenceIssues.map(issue => {
-          const text = issue.text.toLowerCase();
+        // Filter to only HIGH confidence issues for detailed mode with comprehensive filtering
+        const detailedHighConfidenceIssues = detailedResult.issues.filter(issue => {
+          // Basic confidence filter
+          if (issue.confidence !== 'HIGH') return false;
           
-          // Check for known patterns and use stable corrections
-          if (text.includes('great wall') && text.includes('tokyo')) {
-            return { ...issue, suggestion: correctionTemplates['great wall location'] };
-          }
-          if (text.includes('great wall') && (text.includes('21,196') || text.includes('specific'))) {
-            return { ...issue, suggestion: correctionTemplates['great wall length'] };
-          }
-          if (text.includes('great wall') && text.includes('chocolate')) {
-            return { ...issue, suggestion: correctionTemplates['great wall materials'] };
-          }
-          if (text.includes('great wall') && text.includes('napoleon')) {
-            return { ...issue, suggestion: correctionTemplates['great wall builders'] };
+          // Filter out hallucinated suggestions
+          if (containsHallucination(issue.suggestion)) {
+            console.log('Filtered out hallucinated suggestion in detailed mode:', issue.suggestion);
+            return false;
           }
           
-          return issue;
+          // Filter out suggestions that make up facts not in original
+          if (isMakingUpFacts(issue.text, issue.suggestion)) {
+            console.log('Filtered out fact-making suggestion in detailed mode:', issue.suggestion);
+            return false;
+          }
+          
+          return true;
         });
+        
+        // Generalize overly specific suggestions for detailed mode too
+        const generalizedDetailedIssues = await Promise.all(detailedHighConfidenceIssues.map(async issue => {
+          if (isOverlySpecific(issue.suggestion)) {
+            console.log('Detected overly specific suggestion in detailed mode, generalizing:', issue.suggestion);
+            const generalizedSuggestion = await generalizeSpecificSuggestion(issue.suggestion, issue.text);
+            return { ...issue, suggestion: generalizedSuggestion };
+          }
+          return issue;
+        }));
         
         result = {
           ...detailedResult,
-          issues: stableDetailedIssues
+          issues: generalizedDetailedIssues
         };
         break;
 
