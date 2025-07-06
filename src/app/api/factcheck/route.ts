@@ -4,6 +4,27 @@ import { openai } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import crypto from 'crypto';
+import Exa from 'exa-js';
+
+const exa = new Exa(process.env.EXA_API_KEY);
+
+// Rate limiting for Exa API calls
+const EXA_RATE_LIMIT_DELAY = 250; // 250ms delay between requests (4 requests per second, safely under 5/sec limit)
+let lastExaCallTime = 0;
+
+// Helper function to respect rate limits
+async function rateLimitedExaCall<T>(apiCall: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const timeSinceLastCall = now - lastExaCallTime;
+  
+  if (timeSinceLastCall < EXA_RATE_LIMIT_DELAY) {
+    const delayNeeded = EXA_RATE_LIMIT_DELAY - timeSinceLastCall;
+    await new Promise(resolve => setTimeout(resolve, delayNeeded));
+  }
+  
+  lastExaCallTime = Date.now();
+  return await apiCall();
+}
 
 // Types for fact-check results
 interface FactCheckIssue {
@@ -162,6 +183,365 @@ function isMakingUpFacts(originalText: string, suggestion: string): boolean {
   return newFactualWords.length > 2;
 }
 
+// Web-based fact verification using Exa.ai
+async function verifyFactWithWebSearch(claim: string, originalText: string): Promise<{
+  isVerified: boolean;
+  webSources: Array<{title: string; url: string; relevantText: string}>;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+}> {
+  try {
+    // Create search query for the factual claim
+    const searchQuery = `${claim} facts verification`;
+    
+    // Search for authoritative sources with rate limiting
+    const results = await rateLimitedExaCall(() => exa.searchAndContents(searchQuery, {
+      type: 'neural',
+      useAutoprompt: true,
+      numResults: 3,
+      text: true,
+      highlights: true,
+      includeImageUrls: false,
+      includeDomains: [
+        'wikipedia.org',
+        'britannica.com',
+        'nationalgeographic.com',
+        'smithsonianmag.com',
+        'history.com',
+        'bbc.com',
+        'reuters.com',
+        'ap.org',
+        'edu',
+        'gov'
+      ],
+    }));
+
+    if (!results.results || results.results.length === 0) {
+      return {
+        isVerified: false,
+        webSources: [],
+        confidence: 'LOW'
+      };
+    }
+
+    // Process search results
+    const webSources = results.results.map(result => ({
+      title: result.title || 'Untitled',
+      url: result.url,
+      relevantText: (result.text || '').substring(0, 300) + '...'
+    }));
+
+    // Combine web content for verification
+    const webContent = results.results
+      .map(result => `Source: ${result.title || 'Untitled'}
+Content: ${(result.text || '').substring(0, 500)}
+Highlights: ${(result.highlights || []).join(' ')}`)
+      .join('\n\n')
+      .substring(0, 4000);
+
+    // Use AI to verify the claim against web sources
+    const { object: verification } = await generateObject({
+      model: openai('gpt-4o-mini'),
+      schema: z.object({
+        isVerified: z.boolean().describe('Whether the original claim is factually accurate based on web sources'),
+        confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level of verification'),
+        explanation: z.string().describe('Brief explanation of verification result')
+      }),
+      messages: [
+        {
+          role: "system",
+          content: `You are a fact-verification assistant. Compare the original claim with authoritative web sources and determine if the claim is factually accurate.
+
+VERIFICATION RULES:
+1. Only return HIGH confidence if web sources clearly support or contradict the claim
+2. Return MEDIUM confidence if sources partially support the claim but with some uncertainty
+3. Return LOW confidence if sources are unclear, contradictory, or insufficient
+4. Focus on factual accuracy, not minor details or formatting
+5. Consider the reliability and authority of the sources
+
+Original claim to verify: "${claim}"
+Original context: "${originalText}"`
+        },
+        {
+          role: "user",
+          content: `Please verify this claim against these authoritative sources:
+
+${webContent}
+
+Is the original claim factually accurate?`
+        }
+      ],
+      maxTokens: 300,
+      temperature: 0.1,
+    });
+
+    return {
+      isVerified: verification.isVerified,
+      webSources,
+      confidence: verification.confidence
+    };
+
+  } catch (error) {
+    console.error('Web verification failed:', error);
+    
+    // If it's a rate limit error, provide more specific feedback
+    if (error instanceof Error && error.message.includes('rate limit')) {
+      console.log('Rate limit encountered, falling back to AI-only verification');
+    }
+    
+    return {
+      isVerified: false,
+      webSources: [],
+      confidence: 'LOW'
+    };
+  }
+}
+
+// Enhanced fact-checking that combines AI detection with web verification
+async function performEnhancedFactCheck(content: string, mode: 'realtime' | 'detailed'): Promise<FactCheckResult> {
+  // First pass: AI-based fact checking to identify potential issues
+  const aiFactCheckResult = await performAIFactCheck(content, mode);
+  
+  // Get issues array from AI result
+  const aiIssues = Array.isArray(aiFactCheckResult) ? aiFactCheckResult : aiFactCheckResult.issues || [];
+  
+  // Second pass: Web verification for high-confidence AI issues (sequential processing)
+  const enhancedIssues = [];
+  
+  for (const issue of aiIssues) {
+    // Only verify HIGH confidence issues to avoid wasting API calls
+    if (issue.confidence === 'HIGH') {
+      console.log(`Web-verifying claim: "${issue.text}"`);
+      
+      try {
+        const webVerification = await verifyFactWithWebSearch(issue.text, content);
+        
+        // If web sources contradict the AI's assessment, adjust confidence
+        if (webVerification.isVerified && webVerification.confidence === 'HIGH') {
+          // Web sources support the original text, so AI might be wrong
+          enhancedIssues.push({
+            ...issue,
+            confidence: 'LOW' as const,
+            suggestion: `${issue.suggestion} (Note: Some web sources may support the original text)`
+          });
+        } else if (!webVerification.isVerified && webVerification.confidence === 'HIGH') {
+          // Web sources confirm the AI's finding
+          enhancedIssues.push({
+            ...issue,
+            confidence: 'HIGH' as const,
+            suggestion: `${issue.suggestion} `
+          });
+        } else {
+          // Uncertain web verification, keep original issue
+          enhancedIssues.push(issue);
+        }
+      } catch (error) {
+        console.error(`Web verification failed for issue: ${issue.text}`, error);
+        // If web verification fails, keep the original AI issue
+        enhancedIssues.push(issue);
+      }
+    } else {
+      // Keep non-HIGH confidence issues as-is
+      enhancedIssues.push(issue);
+    }
+  }
+
+  // Filter to only HIGH confidence issues after web verification
+  const finalIssues = enhancedIssues.filter(issue => issue.confidence === 'HIGH');
+
+  console.log(`Enhanced fact-check completed: ${aiIssues.length} AI issues → ${finalIssues.length} final issues after web verification`);
+
+  // Return in the same format as the original
+  if (mode === 'detailed' && !Array.isArray(aiFactCheckResult)) {
+    return {
+      ...aiFactCheckResult,
+      issues: finalIssues
+    };
+  }
+  
+  return finalIssues;
+}
+
+// Original AI-based fact checking function (extracted from existing code)
+async function performAIFactCheck(plainText: string, mode: 'realtime' | 'detailed'): Promise<FactCheckResult> {
+  // Define schemas for different modes
+  const realtimeSchema = z.object({
+    issues: z.array(z.object({
+      text: z.string().describe('Exact text from document'),
+      issue: z.string().describe('Clear statement of what is factually wrong'),
+      confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level'),
+      suggestion: z.string().describe('The correct factual information')
+    })).describe('Array of potential issues, empty if no issues found')
+  });
+
+  const detailedSchema = z.object({
+    summary: z.string().describe('Overall assessment'),
+    issues: z.array(z.object({
+      text: z.string().describe('Exact problematic text'),
+      category: z.enum(['factual_error', 'needs_verification', 'misleading', 'outdated']).describe('Category of issue'),
+      issue: z.string().describe('Clear statement of what is factually wrong'),
+      confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level'),
+      suggestion: z.string().describe('The correct factual information'),
+      importance: z.enum(['critical', 'moderate', 'minor']).describe('Importance level')
+    })),
+    verificationNeeded: z.array(z.string()).describe('List of claims that need source verification')
+  });
+
+  let result;
+  let maxTokens = 500;
+
+  switch (mode) {
+    case 'realtime':
+      maxTokens = 2000;
+      const { object: realtimeResult } = await generateObject({
+        model: openai('gpt-4o'),
+        schema: realtimeSchema,
+        messages: [
+          {
+            role: "system",
+            content: `You are a fact-checking assistant. Analyze text for MAJOR factual errors only.
+
+CRITICAL RULES:
+1. ONLY flag obviously wrong, major factual errors
+2. Use BROAD, GENERAL corrections - avoid specific numbers, dates, or measurements
+3. Don't nitpick small details or provide overly precise "corrections"
+4. Focus on clearly false statements that anyone would recognize as wrong
+5. Use general language like "over X kilometers" instead of exact measurements
+6. Don't flag creative writing, opinions, or subjective content
+
+CORRECTION GUIDELINES:
+- For Great Wall: Use "The Great Wall stretches over 21,000 kilometers" (not exact numbers)
+- For historical periods: Use "built over many centuries" (not specific dates)
+- For materials: Use "traditional materials like stone and brick" (not exhaustive lists)
+- For locations: Use "located in China" (not specific regions)
+
+CONFIDENCE LEVELS:
+- HIGH: Only for obviously false statements (chocolate walls, animals in wrong places)
+- MEDIUM/LOW: Avoid these - if unsure, don't flag
+
+Examples of what TO flag:
+- "Great Wall made of chocolate" → "made of traditional materials"
+- "Located in Tokyo" → "located in China"
+- "Built by Napoleon" → "built by Chinese dynasties"
+
+Examples of what NOT to flag:
+- Approximate measurements or dates
+- Regional variations in spelling
+- Minor historical details
+- Style preferences
+
+If uncertain about ANY detail, return empty array.`
+          },
+          {
+            role: "user",
+            content: `Please fact-check this text (limit to max 15 issues):\n\n${plainText.length > 8000 ? plainText.substring(0, 8000) + '...' : plainText}`
+          }
+        ],
+        maxTokens,
+        temperature: 0.1,
+      });
+
+      // Filter to only HIGH confidence issues and apply comprehensive anti-hallucination filtering
+      const highConfidenceIssues = realtimeResult.issues.filter(issue => {
+        // Basic confidence filter
+        if (issue.confidence !== 'HIGH') return false;
+        
+        // Filter out hallucinated suggestions
+        if (containsHallucination(issue.suggestion)) {
+          console.log('Filtered out hallucinated suggestion:', issue.suggestion);
+          return false;
+        }
+        
+        // Filter out suggestions that make up facts not in original
+        if (isMakingUpFacts(issue.text, issue.suggestion)) {
+          console.log('Filtered out fact-making suggestion:', issue.suggestion);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // Generalize overly specific suggestions to prevent precision hallucination
+      result = await Promise.all(highConfidenceIssues.map(async issue => {
+        if (isOverlySpecific(issue.suggestion)) {
+          console.log('Detected overly specific suggestion, generalizing:', issue.suggestion);
+          const generalizedSuggestion = await generalizeSpecificSuggestion(issue.suggestion, issue.text);
+          return { ...issue, suggestion: generalizedSuggestion };
+        }
+        return issue;
+      }));
+      break;
+
+    case 'detailed':
+      maxTokens = 4000;
+      const { object: detailedResult } = await generateObject({
+        model: openai('gpt-4o'),
+        schema: detailedSchema,
+        messages: [
+          {
+            role: "system",
+            content: `You are a thorough fact-checking expert. Analyze the provided text comprehensively for factual accuracy.
+
+Check for:
+1. Factual errors in dates, numbers, events, and claims
+2. Misleading or oversimplified statements
+3. Claims that need sources or verification
+4. Logical inconsistencies
+5. Outdated information that may no longer be accurate
+
+For each issue, provide detailed analysis with confidence levels and importance ratings.`
+          },
+          {
+            role: "user",
+            content: `Please fact-check this text (limit to max 25 issues):\n\n${plainText.length > 12000 ? plainText.substring(0, 12000) + '...' : plainText}`
+          }
+        ],
+        maxTokens,
+        temperature: 0.1,
+      });
+
+      // Filter to only HIGH confidence issues for detailed mode with comprehensive filtering
+      const detailedHighConfidenceIssues = detailedResult.issues.filter(issue => {
+        // Basic confidence filter
+        if (issue.confidence !== 'HIGH') return false;
+        
+        // Filter out hallucinated suggestions
+        if (containsHallucination(issue.suggestion)) {
+          console.log('Filtered out hallucinated suggestion in detailed mode:', issue.suggestion);
+          return false;
+        }
+        
+        // Filter out suggestions that make up facts not in original
+        if (isMakingUpFacts(issue.text, issue.suggestion)) {
+          console.log('Filtered out fact-making suggestion in detailed mode:', issue.suggestion);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // Generalize overly specific suggestions for detailed mode too
+      const generalizedDetailedIssues = await Promise.all(detailedHighConfidenceIssues.map(async issue => {
+        if (isOverlySpecific(issue.suggestion)) {
+          console.log('Detected overly specific suggestion in detailed mode, generalizing:', issue.suggestion);
+          const generalizedSuggestion = await generalizeSpecificSuggestion(issue.suggestion, issue.text);
+          return { ...issue, suggestion: generalizedSuggestion };
+        }
+        return issue;
+      }));
+      
+      result = {
+        ...detailedResult,
+        issues: generalizedDetailedIssues
+      };
+      break;
+
+    default:
+      throw new Error('Invalid mode');
+  }
+
+  return result;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -248,181 +628,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log('Plain text sent to AI model:', plainText);
+    console.log('Plain text sent to enhanced fact-check system:', plainText);
 
-    // Define schemas for different modes
-    const realtimeSchema = z.object({
-      issues: z.array(z.object({
-        text: z.string().describe('Exact text from document'),
-        issue: z.string().describe('Clear statement of what is factually wrong'),
-        confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level'),
-        suggestion: z.string().describe('The correct factual information')
-      })).describe('Array of potential issues, empty if no issues found')
-    });
-
-    const detailedSchema = z.object({
-      summary: z.string().describe('Overall assessment'),
-      issues: z.array(z.object({
-        text: z.string().describe('Exact problematic text'),
-        category: z.enum(['factual_error', 'needs_verification', 'misleading', 'outdated']).describe('Category of issue'),
-        issue: z.string().describe('Clear statement of what is factually wrong'),
-        confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).describe('Confidence level'),
-        suggestion: z.string().describe('The correct factual information'),
-        importance: z.enum(['critical', 'moderate', 'minor']).describe('Importance level')
-      })),
-      verificationNeeded: z.array(z.string()).describe('List of claims that need source verification')
-    });
-
-    let result;
-    let maxTokens = 500;
-
-    switch (mode) {
-      case 'realtime':
-        maxTokens = 2000;
-        const { object: realtimeResult } = await generateObject({
-          model: openai('gpt-4o'),
-          schema: realtimeSchema,
-          messages: [
-            {
-              role: "system",
-              content: `You are a fact-checking assistant. Analyze text for MAJOR factual errors only.
-
-CRITICAL RULES:
-1. ONLY flag obviously wrong, major factual errors
-2. Use BROAD, GENERAL corrections - avoid specific numbers, dates, or measurements
-3. Don't nitpick small details or provide overly precise "corrections"
-4. Focus on clearly false statements that anyone would recognize as wrong
-5. Use general language like "over X kilometers" instead of exact measurements
-6. Don't flag creative writing, opinions, or subjective content
-
-CORRECTION GUIDELINES:
-- For Great Wall: Use "The Great Wall stretches over 21,000 kilometers" (not exact numbers)
-- For historical periods: Use "built over many centuries" (not specific dates)
-- For materials: Use "traditional materials like stone and brick" (not exhaustive lists)
-- For locations: Use "located in China" (not specific regions)
-
-CONFIDENCE LEVELS:
-- HIGH: Only for obviously false statements (chocolate walls, animals in wrong places)
-- MEDIUM/LOW: Avoid these - if unsure, don't flag
-
-Examples of what TO flag:
-- "Great Wall made of chocolate" → "made of traditional materials"
-- "Located in Tokyo" → "located in China"
-- "Built by Napoleon" → "built by Chinese dynasties"
-
-Examples of what NOT to flag:
-- Approximate measurements or dates
-- Regional variations in spelling
-- Minor historical details
-- Style preferences
-
-If uncertain about ANY detail, return empty array.`
-            },
-            {
-              role: "user",
-              content: `Please fact-check this text (limit to max 15 issues):\n\n${plainText.length > 8000 ? plainText.substring(0, 8000) + '...' : plainText}`
-            }
-          ],
-          maxTokens,
-          temperature: 0.1,
-        });
-        // Filter to only HIGH confidence issues and apply comprehensive anti-hallucination filtering
-        const highConfidenceIssues = realtimeResult.issues.filter(issue => {
-          // Basic confidence filter
-          if (issue.confidence !== 'HIGH') return false;
-          
-          // Filter out hallucinated suggestions
-          if (containsHallucination(issue.suggestion)) {
-            console.log('Filtered out hallucinated suggestion:', issue.suggestion);
-            return false;
-          }
-          
-          // Filter out suggestions that make up facts not in original
-          if (isMakingUpFacts(issue.text, issue.suggestion)) {
-            console.log('Filtered out fact-making suggestion:', issue.suggestion);
-            return false;
-          }
-          
-          return true;
-        });
-        
-        // Generalize overly specific suggestions to prevent precision hallucination
-        result = await Promise.all(highConfidenceIssues.map(async issue => {
-          if (isOverlySpecific(issue.suggestion)) {
-            console.log('Detected overly specific suggestion, generalizing:', issue.suggestion);
-            const generalizedSuggestion = await generalizeSpecificSuggestion(issue.suggestion, issue.text);
-            return { ...issue, suggestion: generalizedSuggestion };
-          }
-          return issue;
-        }));
-        break;
-
-      case 'detailed':
-        maxTokens = 4000;
-        const { object: detailedResult } = await generateObject({
-          model: openai('gpt-4o'),
-          schema: detailedSchema,
-          messages: [
-            {
-              role: "system",
-              content: `You are a thorough fact-checking expert. Analyze the provided text comprehensively for factual accuracy.
-
-Check for:
-1. Factual errors in dates, numbers, events, and claims
-2. Misleading or oversimplified statements
-3. Claims that need sources or verification
-4. Logical inconsistencies
-5. Outdated information that may no longer be accurate
-
-For each issue, provide detailed analysis with confidence levels and importance ratings.`
-            },
-            {
-              role: "user",
-              content: `Please fact-check this text (limit to max 25 issues):\n\n${plainText.length > 12000 ? plainText.substring(0, 12000) + '...' : plainText}`
-            }
-          ],
-          maxTokens,
-          temperature: 0.1,
-        });
-        // Filter to only HIGH confidence issues for detailed mode with comprehensive filtering
-        const detailedHighConfidenceIssues = detailedResult.issues.filter(issue => {
-          // Basic confidence filter
-          if (issue.confidence !== 'HIGH') return false;
-          
-          // Filter out hallucinated suggestions
-          if (containsHallucination(issue.suggestion)) {
-            console.log('Filtered out hallucinated suggestion in detailed mode:', issue.suggestion);
-            return false;
-          }
-          
-          // Filter out suggestions that make up facts not in original
-          if (isMakingUpFacts(issue.text, issue.suggestion)) {
-            console.log('Filtered out fact-making suggestion in detailed mode:', issue.suggestion);
-            return false;
-          }
-          
-          return true;
-        });
-        
-        // Generalize overly specific suggestions for detailed mode too
-        const generalizedDetailedIssues = await Promise.all(detailedHighConfidenceIssues.map(async issue => {
-          if (isOverlySpecific(issue.suggestion)) {
-            console.log('Detected overly specific suggestion in detailed mode, generalizing:', issue.suggestion);
-            const generalizedSuggestion = await generalizeSpecificSuggestion(issue.suggestion, issue.text);
-            return { ...issue, suggestion: generalizedSuggestion };
-          }
-          return issue;
-        }));
-        
-        result = {
-          ...detailedResult,
-          issues: generalizedDetailedIssues
-        };
-        break;
-
-      default:
-        return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
-    }
+    // Use enhanced fact-checking with Exa.ai integration
+    const result = await performEnhancedFactCheck(plainText, mode);
 
     // Store result in cache
     factCheckCache.set(contentHash, {
@@ -438,7 +647,7 @@ For each issue, provide detailed analysis with confidence levels and importance 
       }
     }
 
-    console.log('Fact-check completed, result cached with hash:', contentHash);
+    console.log('Enhanced fact-check completed with Exa.ai verification, result cached with hash:', contentHash);
 
     return NextResponse.json({
       mode,
@@ -446,15 +655,15 @@ For each issue, provide detailed analysis with confidence levels and importance 
       contentLength: content.length,
       plainTextLength: plainText.length,
       processingTime: Date.now(),
-      cached: false
+      cached: false,
+      enhanced: true // Flag to indicate enhanced fact-checking was used
     });
 
   } catch (error) {
-    console.error('Error in fact-check API:', error);
-    return NextResponse.json({
+    console.error('Error in enhanced fact-check API:', error);
+    return NextResponse.json({ 
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)) // Log full error object
+      message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
