@@ -857,7 +857,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
         {/* Keyboard Shortcuts Footer */}
         <div className="pt-0 pb-1 px-3">
           <p className="text-xs text-center text-gray-400">
-            {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'} + Space for fact checking
+            Ctrl + Space for fact checking
           </p>
         </div>
       </CardContent>
