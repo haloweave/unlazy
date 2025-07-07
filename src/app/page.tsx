@@ -215,6 +215,11 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="relative z-10 py-6 px-4">
         <div className="max-w-4xl mx-auto text-center">
+          <div className="flex justify-center space-x-4 mb-2">
+            <a href="/terms-service" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">Terms of Service</a>
+            <span className="text-sm text-gray-500">|</span>
+            <a href="/privacy-policy" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">Privacy Policy</a>
+          </div>
           <a
             href="https://haloweave.com"
             target="_blank"
