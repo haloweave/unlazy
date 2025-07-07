@@ -278,10 +278,15 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
         debouncedGrammarCheck(content);
         setLastCheckedContent(content);
       }
-    } else {
-      setGrammarSpellingIssues([]);
     }
   }, [content, grammarCheckEnabled, debouncedGrammarCheck, lastCheckedContent, grammarSpellingIssues]);
+
+  // Clear grammar issues when grammar check is disabled
+  useEffect(() => {
+    if (!grammarCheckEnabled) {
+      setGrammarSpellingIssues([]);
+    }
+  }, [grammarCheckEnabled]);
 
   // Clear recently fixed texts after 30 seconds to allow new checks
   useEffect(() => {
