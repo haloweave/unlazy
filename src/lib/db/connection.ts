@@ -16,6 +16,26 @@ if (!connectionString) {
 let client: postgres.Sql | null = null
 let db: ReturnType<typeof drizzle> | null = null
 
+// Retry function for database operations
+export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation()
+    } catch (error: any) {
+      if (i === maxRetries - 1) throw error
+      
+      // Only retry on connection errors
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        console.log(`Database operation failed, retrying (${i + 1}/${maxRetries})...`)
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))) // Exponential backoff
+      } else {
+        throw error // Don't retry on other errors
+      }
+    }
+  }
+  throw new Error('Max retries exceeded')
+}
+
 if (connectionString) {
   try {
     console.log('Attempting to connect to database with URL:', connectionString.substring(0, 30) + '...')
@@ -30,18 +50,26 @@ if (connectionString) {
       },
       // Handle connection errors gracefully
       onnotice: () => {}, // Suppress notices
-      debug: process.env.NODE_ENV === 'development'
+      debug: process.env.NODE_ENV === 'development',
+      // Add connection retry settings
+      connect_timeout: 30,
+      socket_timeout: 30,
+      retry: {
+        max: 3,
+        delay: 1000
+      }
     })
 
     // Create the drizzle instance with schema
     db = drizzle(client, { schema })
     console.log('Database connection established successfully')
     
-    // Test the connection
-    client`SELECT 1`.then(() => {
+    // Test the connection with retry
+    withRetry(async () => {
+      await client!`SELECT 1`
       console.log('Database connection test successful')
     }).catch((error) => {
-      console.error('Database connection test failed:', error)
+      console.error('Database connection test failed after retries:', error)
       // Don't fail completely, just log the error
     })
     

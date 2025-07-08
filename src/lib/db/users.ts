@@ -1,4 +1,4 @@
-import { db } from './connection'
+import { db, withRetry } from './connection'
 import { users } from './schema'
 import { eq } from 'drizzle-orm'
 
@@ -10,12 +10,14 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
       return null
     }
 
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, clerkUserId))
-      .limit(1)
+    // Check if user already exists with retry
+    const existingUser = await withRetry(async () => {
+      return await db
+        .select()
+        .from(users)
+        .where(eq(users.clerkUserId, clerkUserId))
+        .limit(1)
+    })
 
     if (existingUser.length > 0) {
       console.log(`User ${clerkUserId} found in database`)
@@ -24,13 +26,15 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
 
     // Create new user if doesn't exist (this handles previously logged in users)
     console.log(`Creating new user ${clerkUserId} in database`)
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        clerkUserId,
-        email,
-      })
-      .returning()
+    const [newUser] = await withRetry(async () => {
+      return await db
+        .insert(users)
+        .values({
+          clerkUserId,
+          email,
+        })
+        .returning()
+    })
 
     console.log(`User ${clerkUserId} created successfully`)
     return newUser
@@ -52,15 +56,17 @@ export async function updateUserNewsletterStatus(
       return null
     }
 
-    const [updatedUser] = await db
-      .update(users)
-      .set({
-        newsletterDialogShown,
-        newsletterSubscribed,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.clerkUserId, clerkUserId))
-      .returning()
+    const [updatedUser] = await withRetry(async () => {
+      return await db
+        .update(users)
+        .set({
+          newsletterDialogShown,
+          newsletterSubscribed,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.clerkUserId, clerkUserId))
+        .returning()
+    })
 
     console.log(`User ${clerkUserId} newsletter status updated successfully`)
     return updatedUser
@@ -77,13 +83,15 @@ export async function resetAllNewsletterDialogStatus() {
       return null
     }
 
-    await db
-      .update(users)
-      .set({
-        newsletterDialogShown: false,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.newsletterDialogShown, true))
+    await withRetry(async () => {
+      return await db
+        .update(users)
+        .set({
+          newsletterDialogShown: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.newsletterDialogShown, true))
+    })
 
     console.log('All users newsletter dialog status reset successfully')
     return true
