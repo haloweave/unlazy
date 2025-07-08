@@ -40,3 +40,32 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
     return null
   }
 }
+
+export async function updateUserNewsletterStatus(
+  clerkUserId: string,
+  newsletterDialogShown: boolean,
+  newsletterSubscribed: boolean
+) {
+  try {
+    if (!db) {
+      console.warn('Database not available, skipping newsletter status update')
+      return null
+    }
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        newsletterDialogShown,
+        newsletterSubscribed,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.clerkUserId, clerkUserId))
+      .returning()
+
+    console.log(`User ${clerkUserId} newsletter status updated successfully`)
+    return updatedUser
+  } catch (error) {
+    console.error('Error updating user newsletter status:', error)
+    return null
+  }
+}

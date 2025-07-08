@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, integer, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, uuid, integer, jsonb, boolean } from 'drizzle-orm/pg-core'
 
 // Users table
 export const users = pgTable('users', {
@@ -7,6 +7,8 @@ export const users = pgTable('users', {
   email: text('email').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  newsletterDialogShown: boolean('newsletter_dialog_shown').default(false).notNull(),
+  newsletterSubscribed: boolean('newsletter_subscribed').default(false).notNull(),
 })
 
 // Documents table

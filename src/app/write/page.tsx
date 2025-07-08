@@ -20,6 +20,9 @@ interface Document {
 }
 
 import { ClerkProvider } from '@clerk/nextjs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 export default function DocumentPage() {
   return (
@@ -30,6 +33,10 @@ export default function DocumentPage() {
 }
 
 function DocumentPageContent() {
+  const [showNewsletterDialog, setShowNewsletterDialog] = useState(false)
+  const [subscribeToNewsletter, setSubscribeToNewsletter] = useState(true)
+  const [isSubmittingNewsletter, setIsSubmittingNewsletter] = useState(false)
+
   const { user, isLoaded } = useUser()
   const [title, setTitle] = useState('Untitled Document')
   const [content, setContent] = useState('')
@@ -48,6 +55,25 @@ function DocumentPageContent() {
   const [highlightText, setHighlightText] = useState<{text: string, trigger: number} | null>(null)
   const [ignoredFactChecks, setIgnoredFactChecks] = useState<Set<string>>(new Set())
   const [showSavedMessage, setShowSavedMessage] = useState(false)
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (user && isLoaded) {
+        try {
+          const response = await fetch('/api/user-data')
+          if (response.ok) {
+            const userData = await response.json()
+            if (!userData.newsletterDialogShown) {
+              setShowNewsletterDialog(true)
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user data:', error)
+        }
+      }
+    }
+    fetchUserData()
+  }, [user, isLoaded])
 
   // Auto-generate title if content exists but title is still "Untitled Document"
   const generateTitle = useCallback(async (contentText: string) => {
@@ -382,6 +408,58 @@ function DocumentPageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex relative">
+      <Dialog open={showNewsletterDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>💡 Join the ideaTBD community!</DialogTitle>
+            <DialogDescription className="text-gray-800 font-medium">
+              Get cool product ideas, founder templates, and behind-the-scenes experiments. We feature awesome products from our builder community and share real strategies that work - straight to your inbox. Free, always.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="subscribe-newsletter"
+              checked={subscribeToNewsletter}
+              onCheckedChange={(checked) => setSubscribeToNewsletter(checked === true)}
+            />
+            <Label htmlFor="subscribe-newsletter">Join us</Label>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={async () => {
+                setIsSubmittingNewsletter(true)
+                try {
+                  if (subscribeToNewsletter) {
+                    await fetch('/api/newsletter', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: user?.emailAddresses[0]?.emailAddress }),
+                    })
+                  }
+                  await fetch('/api/user-data', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      newsletterDialogShown: true,
+                      newsletterSubscribed: subscribeToNewsletter,
+                    }),
+                  })
+                  setShowNewsletterDialog(false)
+                } catch (error) {
+                  console.error('Failed to update newsletter status:', error)
+                } finally {
+                  setIsSubmittingNewsletter(false)
+                }
+              }}
+              disabled={isSubmittingNewsletter}
+            >
+              {isSubmittingNewsletter ? 'Joining...' : 'Join'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* History Sidebar - Hover Overlay */}
       <AnimatePresence>
         {showHistory && (
