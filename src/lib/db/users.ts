@@ -69,3 +69,26 @@ export async function updateUserNewsletterStatus(
     return null
   }
 }
+
+export async function resetAllNewsletterDialogStatus() {
+  try {
+    if (!db) {
+      console.warn('Database not available, skipping newsletter dialog reset')
+      return null
+    }
+
+    await db
+      .update(users)
+      .set({
+        newsletterDialogShown: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.newsletterDialogShown, true))
+
+    console.log('All users newsletter dialog status reset successfully')
+    return true
+  } catch (error) {
+    console.error('Error resetting newsletter dialog status:', error)
+    return null
+  }
+}

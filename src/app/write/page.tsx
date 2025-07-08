@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useUser, SignOutButton } from '@clerk/nextjs'
 import DocumentEditor from '@/components/DocumentEditor'
 import AISidebar from '@/components/AISidebar'
-import { FileText, Clock, Menu, X, Edit2, Check, Trash2, Download, Loader2 } from 'lucide-react'
+import { FileText, Clock, Menu, X, Edit2, Check, Trash2, Download, Loader2, LogOut } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -454,7 +454,7 @@ function DocumentPageContent() {
               }}
               disabled={isSubmittingNewsletter}
             >
-              {isSubmittingNewsletter ? 'Joining...' : 'Join'}
+              {isSubmittingNewsletter ? (subscribeToNewsletter ? 'Joining...' : 'Processing...') : (subscribeToNewsletter ? 'Join' : 'No')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -540,6 +540,19 @@ function DocumentPageContent() {
                   ))}
                 </div>
               )}
+            </div>
+            
+            {/* Logout Button */}
+            <div className="p-4 border-t border-gray-200">
+              <SignOutButton>
+                <Button
+                  variant="ghost"
+                  className="w-full flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </SignOutButton>
             </div>
           </motion.div>
         )}
