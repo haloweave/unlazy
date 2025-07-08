@@ -34,6 +34,8 @@ CREATE TABLE "users" (
 	"email" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"newsletter_dialog_shown" boolean DEFAULT false NOT NULL,
+	"newsletter_subscribed" boolean DEFAULT false NOT NULL,
 	CONSTRAINT "users_clerk_user_id_unique" UNIQUE("clerk_user_id")
 );
 --> statement-breakpoint

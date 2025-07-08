@@ -1,5 +1,5 @@
 {
-  "id": "1d8bab4e-4db7-46a5-a1ce-abda36fa71ad",
+  "id": "d4c53c54-bdeb-4f49-ad39-a4b51ab57a46",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -261,6 +261,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "newsletter_dialog_shown": {
+          "name": "newsletter_dialog_shown",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "newsletter_subscribed": {
+          "name": "newsletter_subscribed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {},

@@ -21,6 +21,7 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
 
     if (existingUser.length > 0) {
       console.log(`User ${clerkUserId} found in database`)
+      console.log(`Newsletter status - Dialog shown: ${existingUser[0].newsletterDialogShown}, Subscribed: ${existingUser[0].newsletterSubscribed}`)
       return existingUser[0]
     }
 
@@ -37,6 +38,7 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
     })
 
     console.log(`User ${clerkUserId} created successfully`)
+    console.log(`New user newsletter status - Dialog shown: ${newUser.newsletterDialogShown}, Subscribed: ${newUser.newsletterSubscribed}`)
     return newUser
   } catch (error) {
     console.error('Error ensuring user exists:', error)
@@ -69,6 +71,7 @@ export async function updateUserNewsletterStatus(
     })
 
     console.log(`User ${clerkUserId} newsletter status updated successfully`)
+    console.log(`Updated newsletter status - Dialog shown: ${updatedUser.newsletterDialogShown}, Subscribed: ${updatedUser.newsletterSubscribed}`)
     return updatedUser
   } catch (error) {
     console.error('Error updating user newsletter status:', error)
