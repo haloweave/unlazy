@@ -12,7 +12,7 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
 
     // Check if user already exists with retry
     const existingUser = await withRetry(async () => {
-      return await db
+      return await db!
         .select()
         .from(users)
         .where(eq(users.clerkUserId, clerkUserId))
@@ -27,7 +27,7 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
     // Create new user if doesn't exist (this handles previously logged in users)
     console.log(`Creating new user ${clerkUserId} in database`)
     const [newUser] = await withRetry(async () => {
-      return await db
+      return await db!
         .insert(users)
         .values({
           clerkUserId,
@@ -57,7 +57,7 @@ export async function updateUserNewsletterStatus(
     }
 
     const [updatedUser] = await withRetry(async () => {
-      return await db
+      return await db!
         .update(users)
         .set({
           newsletterDialogShown,
@@ -84,7 +84,7 @@ export async function resetAllNewsletterDialogStatus() {
     }
 
     await withRetry(async () => {
-      return await db
+      return await db!
         .update(users)
         .set({
           newsletterDialogShown: false,

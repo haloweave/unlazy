@@ -21,11 +21,12 @@ export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3):
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await operation()
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (i === maxRetries - 1) throw error
       
       // Only retry on connection errors
-      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      if (error instanceof Error && 'code' in error && 
+          (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT')) {
         console.log(`Database operation failed, retrying (${i + 1}/${maxRetries})...`)
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))) // Exponential backoff
       } else {
@@ -52,12 +53,7 @@ if (connectionString) {
       onnotice: () => {}, // Suppress notices
       debug: process.env.NODE_ENV === 'development',
       // Add connection retry settings
-      connect_timeout: 30,
-      socket_timeout: 30,
-      retry: {
-        max: 3,
-        delay: 1000
-      }
+      connect_timeout: 30
     })
 
     // Create the drizzle instance with schema
