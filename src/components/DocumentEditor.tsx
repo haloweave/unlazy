@@ -423,7 +423,8 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     '#000000', '#374151', '#6B7280', '#9CA3AF',
     '#EF4444', '#F97316', '#F59E0B', '#EAB308',
     '#22C55E', '#10B981', '#06B6D4', '#3B82F6',
-    '#6366F1', '#8B5CF6', '#A855F7', '#EC4899'
+    '#6366F1', '#8B5CF6', '#A855F7', '#EC4899',
+    '#0C6B00' // Brand green
   ]
 
   const highlightColors = [
