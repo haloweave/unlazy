@@ -76,6 +76,8 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
   const [lastCheckedContent, setLastCheckedContent] = useState('');
   const [resolvedFactCheckTexts, setResolvedFactCheckTexts] = useState<Set<string>>(new Set());
   const [recentlyFixedGrammarTexts, setRecentlyFixedGrammarTexts] = useState<string[]>([]);
+  const [hoveredSource, setHoveredSource] = useState<{source: ResearchSource, index: number} | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{x: number, y: number}>({x: 0, y: 0});
 
   // Store current session data to restore when switching back
   const [currentSession, setCurrentSession] = useState<{
@@ -393,6 +395,20 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     setResolvedFactCheckTexts(new Set());
   };
 
+  // Handle tooltip mouse events
+  const handleTooltipMouseEnter = (e: React.MouseEvent, source: ResearchSource, index: number) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 8
+    });
+    setHoveredSource({ source, index });
+  };
+
+  const handleTooltipMouseLeave = () => {
+    setHoveredSource(null);
+  };
+
   // Filter fact-check issues based on ignored state (API already filters to HIGH confidence only)
   const filteredFactCheckIssues = factCheckIssues.filter(issue => {
     const id = generateFactCheckId(issue);
@@ -646,27 +662,27 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                         onHighlightText?.(issue.text);
                       }}
                     >
-                      <div className="flex items-center justify-start gap-4">
-                        <div className="flex flex-col items-center justify-center text-orange-500 min-w-1/6">
+                      <div className="flex items-center justify-start gap-4 w-full">
+                        <div className="flex flex-col items-center justify-center text-orange-500 flex-shrink-0">
                           <AlertTriangle className="h-4 w-4" />
                           <span className="text-xs text-orange-500 font-base">
                             {issue.type}
                           </span>
                         </div>
-                        <div className="flex flex-col items-start justify-center">
-                          <div className="flex items-center justify-start gap-1">
-                            <p className="text-xs text-black/80 font-medium truncate">
+                        <div className="flex flex-col items-start justify-center flex-1 min-w-0">
+                          <div className="flex items-center justify-start gap-1 w-full">
+                            <p className="text-xs text-black/80 font-medium break-words overflow-hidden">
                               &ldquo;{issue.text}&rdquo;
                             </p>
                             {issue.position && issue.position.start !== issue.position.end && (
-                            <span className="text-xs text-gray-400">@{issue.position.start}</span>
+                            <span className="text-xs text-gray-400 flex-shrink-0">@{issue.position.start}</span>
                           )}
                           </div>
-                          <p className="text-xs text-[var(--brand-green)]">
+                          <p className="text-xs text-[var(--brand-green)] break-words overflow-hidden w-full">
                             → {issue.suggestion}
                           </p>
                           {issue.issue && issue.issue !== 'Issue detected' && (
-                            <p className="text-xs text-gray-500 mt-1 italic">{issue.issue}</p>
+                            <p className="text-xs text-gray-500 mt-1 italic break-words overflow-hidden w-full">{issue.issue}</p>
                           )}
                         </div>
                       </div>
@@ -691,9 +707,9 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                         onHighlightText?.(issue.text);
                       }}
                     >
-                      <div className="flex items-center justify-start gap-4">
+                      <div className="flex items-center justify-start gap-4 w-full">
                         <div
-                          className={`flex flex-col items-center justify-center min-w-1/6 ${
+                          className={`flex flex-col items-center justify-center flex-shrink-0 ${
                             issue.confidence === 'HIGH' 
                               ? 'text-red-500' 
                               : issue.confidence === 'MEDIUM'
@@ -706,9 +722,9 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                             {issue.confidence}
                           </span>
                         </div>
-                        <div className="flex flex-col items-start justify-center">
-                          <p className="text-xs text-gray-700 font-medium truncate">&ldquo;{issue.text}&rdquo;</p>
-                          <p className="text-xs text-[var(--brand-green)]">→ {issue.suggestion}</p>
+                        <div className="flex flex-col items-start justify-center flex-1 min-w-0">
+                          <p className="text-xs text-gray-700 font-medium break-words overflow-hidden w-full">&ldquo;{issue.text}&rdquo;</p>
+                          <p className="text-xs text-[var(--brand-green)] break-words overflow-hidden w-full">→ {issue.suggestion}</p>
                         </div>
                         <Button
                           onClick={(e) => {
@@ -717,7 +733,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                           }}
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-600 ml-auto"
+                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-600 flex-shrink-0"
                           title="Ignore this fact check"
                         >
                           <X className="h-3 w-3" />
@@ -759,23 +775,14 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                             <button
                               key={index}
                               onClick={() => window.open(source.url, '_blank')}
-                              className="relative group inline-flex items-center"
+                              onMouseEnter={(e) => handleTooltipMouseEnter(e, source, index)}
+                              onMouseLeave={handleTooltipMouseLeave}
+                              className="relative inline-flex items-center"
                               title={source.title}
                             >
                               <span className="bg-gray-200/60 hover:bg-gray-300/80 text-gray-600 text-xs px-1.5 py-0.5 rounded-full transition-colors font-medium">
                                 {index + 1}
                               </span>
-                              
-                              {/* Tooltip on hover */}
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 max-w-xs whitespace-normal shadow-lg">
-                                  <div className="font-medium">{source.title}</div>
-                                  {source.author && (
-                                    <div className="text-gray-300 mt-1">{source.author}</div>
-                                  )}
-                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                                </div>
-                              </div>
                             </button>
                           ))}
                         </div>
@@ -869,6 +876,26 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           </p>
         </div>
       </CardContent>
+      
+      {/* Fixed Position Tooltip Portal */}
+      {hoveredSource && (
+        <div 
+          className="fixed z-[10000] pointer-events-none"
+          style={{
+            left: `${tooltipPosition.x}px`,
+            top: `${tooltipPosition.y}px`,
+            transform: 'translate(-50%, -100%)'
+          }}
+        >
+          <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 max-w-xs whitespace-normal shadow-xl border border-gray-700">
+            <div className="font-medium">{hoveredSource.source.title}</div>
+            {hoveredSource.source.author && (
+              <div className="text-gray-300 mt-1">{hoveredSource.source.author}</div>
+            )}
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
