@@ -467,21 +467,21 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-gray-200" />
                   <DropdownMenuItem 
-                    className="text-xs text-red-600 hover:bg-red-50"
+                    className="flex items-center justify-between text-xs text-black/80 hover:text-red-600 hover:bg-red-50"
                     onClick={clearIgnoredFactChecks}
                     disabled={ignoredFactChecks.size === 0}
                   >
-                    <Trash2 className="h-3 w-3 mr-2" />
                     Clear Ignored Fact Checks
+                    <Trash2 className="h-3 w-3 text-red-600" />
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-gray-200" />
                   <DropdownMenuItem 
-                    className="text-xs text-red-600 hover:bg-red-50"
+                    className="flex items-center justify-between text-xs text-black/80 hover:text-red-600 hover:bg-red-50"
                     onClick={clearHistory}
                     disabled={researchHistory.length === 0}
                   >
-                    <Trash2 className="h-3 w-3 mr-2" />
                     Clear Research History
+                    <Trash2 className="h-3 w-3 text-red-600" />
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -717,7 +717,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                           }}
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600 hover:bg-gray-200 absolute top-2 right-2"
+                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-600 ml-auto"
                           title="Ignore this fact check"
                         >
                           <X className="h-3 w-3" />
@@ -839,8 +839,8 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   onClick={() => loadSession(-1)}
                   className={`w-2 h-2 rounded-full transition-colors ${
                     currentSessionIndex === -1 
-                      ? 'bg-blue-500' 
-                      : 'bg-blue-300 hover:bg-blue-400'
+                      ? 'bg-[var(--brand-green)]' 
+                      : 'bg-green-800/40 hover:bg-green-800/50'
                   }`}
                   title="Current session"
                 />
