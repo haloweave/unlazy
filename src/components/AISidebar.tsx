@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle, RefreshCw, Loader2, Settings, Trash2, X } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle, ArrowUp, AlertOctagon, RefreshCw, Loader2, Settings, Trash2, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { GrammarSpellingIssue } from '@/app/api/grammar-check/route';
+import Image from 'next/image';
 
 export interface FactCheckIssue {
   text: string;
@@ -423,13 +424,13 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   onClick={() => performSearch(searchQuery)}
                   disabled={isLoadingResearch || !searchQuery.trim()}
                   size="sm"
-                  className="h-7 w-7 p-0 bg-blue-100 hover:bg-blue-200 text-blue-600 border-blue-200"
+                  className="h-7 w-7 p-0 bg-[var(--brand-green)] text-white"
                   variant="outline"
                 >
                   {isLoadingResearch ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <Search className="h-3 w-3" />
+                    <ArrowUp className="h-3 w-3" />
                   )}
                 </Button>
               </motion.div>
@@ -450,7 +451,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                       <Switch
                         checked={factCheckEnabled}
                         onCheckedChange={setFactCheckEnabled}
-                        className="data-[state=checked]:bg-gray-900"
+                        className="data-[state=checked]:bg-gray-600"
                       />
                     </div>
                   </DropdownMenuItem>
@@ -460,7 +461,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                       <Switch
                         checked={grammarCheckEnabled}
                         onCheckedChange={setGrammarCheckEnabled}
-                        className="data-[state=checked]:bg-gray-900"
+                        className="data-[state=checked]:bg-gray-600"
                       />
                     </div>
                   </DropdownMenuItem>
@@ -557,9 +558,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           {/* Empty State - Your Writing Co-pilot */}
           {!summary && !isLoadingResearch && !isLoadingFactCheck && !isLoadingGrammarCheck && filteredFactCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length < 3 && (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                <Search className="h-6 w-6 text-gray-400" />
-              </div>
+              <Image src="/assets/unlazy-logomark.png" alt="Unlazy Logo" width={50} height={50} />
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-1">Your writing co-pilot</h3>
                 <p className="text-xs text-gray-500">Research, fact-check, and get insights as you write</p>
@@ -641,35 +640,31 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                       key={`grammar-${index}`}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-gray-50 hover:bg-gray-100 rounded-md p-3 space-y-2 cursor-pointer"
+                      className="bg-white hover:bg-orange-50 border border-orange-100 border-l-8 border-l-orange-500 rounded-md p-2 space-y-1.5 cursor-pointer"
                       onClick={() => {
                         console.log('Grammar issue clicked:', issue.text);
                         onHighlightText?.(issue.text);
                       }}
                     >
-                      <div className="flex items-start space-x-2">
-                        <Badge 
-                          variant="outline"
-                          className={`text-xs font-medium flex-shrink-0 ${
-                            issue.severity === 'error' 
-                              ? 'bg-red-50 text-red-600 border-red-200' 
-                              : issue.severity === 'warning' 
-                                ? 'bg-orange-50 text-orange-600 border-orange-200'
-                                : 'bg-gray-50 text-gray-600 border-gray-200'
-                          }`}
-                        >
-                          {issue.type}
-                        </Badge>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-1">
-                            <span className="text-xs text-gray-700 font-medium">&ldquo;</span>
-                            <span className="text-xs text-gray-900 font-medium underline decoration-wavy decoration-gray-400">{issue.text}</span>
-                            <span className="text-xs text-gray-700 font-medium">&rdquo;</span>
+                      <div className="flex items-center justify-start gap-4">
+                        <div className="flex flex-col items-center justify-center text-orange-500 min-w-1/6">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-xs text-orange-500 font-base">
+                            {issue.type}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-start justify-center">
+                          <div className="flex items-center justify-start gap-1">
+                            <p className="text-xs text-black/80 font-medium truncate">
+                              &ldquo;{issue.text}&rdquo;
+                            </p>
                             {issue.position && issue.position.start !== issue.position.end && (
-                              <span className="text-xs text-gray-400">@{issue.position.start}</span>
-                            )}
+                            <span className="text-xs text-gray-400">@{issue.position.start}</span>
+                          )}
                           </div>
-                          <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
+                          <p className="text-xs text-[var(--brand-green)]">
+                            → {issue.suggestion}
+                          </p>
                           {issue.issue && issue.issue !== 'Issue detected' && (
                             <p className="text-xs text-gray-500 mt-1 italic">{issue.issue}</p>
                           )}
@@ -684,28 +679,36 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                       key={generateFactCheckId(issue)}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-red-50 hover:bg-red-100 rounded-md p-3 space-y-2 cursor-pointer relative"
+                      className={`bg-white border border-l-8  rounded-md p-2 space-y-1.5 cursor-pointer ${
+                        issue.confidence === 'HIGH' 
+                          ? 'hover:bg-red-50 border-red-100 border-l-red-500' 
+                          : issue.confidence === 'MEDIUM'
+                            ? 'hover:bg-orange-50 border-orange-100 border-l-orange-600'
+                            : 'hover:bg-gray-50 border-gray-100 border-l-gray-500'
+                      }`}
                       onClick={() => {
                         console.log('Fact check issue clicked:', issue.text);
                         onHighlightText?.(issue.text);
                       }}
                     >
-                      <div className="flex items-start gap-2">
-                        <Badge 
-                          variant="outline"
-                          className={`text-xs font-medium flex-shrink-0 ${
+                      <div className="flex items-center justify-start gap-4">
+                        <div
+                          className={`flex flex-col items-center justify-center min-w-1/6 ${
                             issue.confidence === 'HIGH' 
-                              ? 'bg-red-50 text-red-600 border-red-200' 
+                              ? 'text-red-500' 
                               : issue.confidence === 'MEDIUM'
-                                ? 'bg-orange-50 text-orange-600 border-orange-200'
-                                : 'bg-gray-50 text-gray-600 border-gray-200'
+                                ? 'text-orange-600'
+                                : 'text-red-400'
                           }`}
                         >
-                          {issue.confidence}
-                        </Badge>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-gray-700 font-medium line-clamp-2">&ldquo;{issue.text}&rdquo;</p>
-                          <p className="text-xs text-blue-600 mt-1">→ {issue.suggestion}</p>
+                          <AlertOctagon className="h-4 w-4" />
+                          <span className="text-xs font-base upperase">
+                            {issue.confidence}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-start justify-center">
+                          <p className="text-xs text-gray-700 font-medium truncate">&ldquo;{issue.text}&rdquo;</p>
+                          <p className="text-xs text-[var(--brand-green)]">→ {issue.suggestion}</p>
                         </div>
                         <Button
                           onClick={(e) => {
