@@ -48,10 +48,10 @@ export default function Footer() {
 
       {/* Copyright Row */}
       <div className="flex flex-row items-center justify-between w-full">
-        <p className="text-xs text-gray-500 w-1/3"><span>Powered by </span><span className="font-semibold">Haloweave </span><span>- Your AI Product Partner</span></p>
+        <p className="text-xs text-gray-500 w-1/3"><span>Powered by </span><a href="https://www.haloweave.com/" target="_blank" rel="noopener noreferrer" className="font-semibold hover:text-gray-700">Haloweave </a><span>- Your AI Product Partner</span></p>
         <div className="flex flex-row items-center justify-center w-1/3 gap-4">
             <Link href="/privacy-policy" className="text-xs text-gray-500 hover:text-gray-700">Privacy Policy</Link>
-            <Link href="/terms-of-service" className="text-xs text-gray-500 hover:text-gray-700">Terms of Service</Link>
+            <Link href="/terms-service" className="text-xs text-gray-500 hover:text-gray-700">Terms of Service</Link>
         </div>
         <span className="text-xs text-gray-500 w-1/3 flex justify-end">
           © 2025 unlazywriter. All Rights Reserved

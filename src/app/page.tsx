@@ -174,7 +174,7 @@ export default function HomePage() {
               </span>
               <span className="flex items-center text-sm text-black/80">
                 <Zap className="h-4 w-4 text-yellow-600 mr-2 flex-shrink-0" />
-                Grammer Check
+                Grammar Check
               </span>
             </div>
 
