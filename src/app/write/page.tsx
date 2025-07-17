@@ -4,10 +4,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser, SignOutButton } from '@clerk/nextjs'
 import DocumentEditor from '@/components/DocumentEditor'
 import AISidebar from '@/components/AISidebar'
-import { FileText, Clock, Menu, X, Edit2, Check, Trash2, Download, Loader2, LogOut } from 'lucide-react'
+import { FileText, Clock, Menu, X, Edit2, Check, Trash2, Download, Loader2, LogOut, Plus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { GrammarSpellingIssue } from '@/app/api/grammar-check/route'
 import { FactCheckIssue } from '@/components/AISidebar'
 
@@ -405,7 +411,7 @@ function DocumentPageContent() {
       </div>
     )
   }
-
+  const firstNameInitial = user.firstName ? user.firstName.charAt(0).toUpperCase() : '';
   return (
     <div className="min-h-screen bg-gray-50 flex relative">
       <Dialog open={showNewsletterDialog}>
@@ -467,34 +473,36 @@ function DocumentPageContent() {
             initial={{ x: -300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
-            className="absolute left-0 top-0 bottom-0 w-80 bg-white border-r border-gray-200 flex flex-col shadow-xl z-20"
+            className="fixed left-0 top-0 bottom-0 w-80 bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 h-screen"
           >
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Documents</h2>
+                {/* <h2 className="text-lg font-semibold text-gray-900">Documents</h2> */}
                 <Button
                   onClick={() => setShowHistory(false)}
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 cursor-pointer group"
                 >
-                  <X className="h-4 w-4" />
+                  <Menu className="h-5 w-5 text-gray-600 group-hover:hidden" />
+                  <X className="h-4 w-4 text-gray-600 hidden group-hover:block" />
                 </Button>
               </div>
               <Button
                 onClick={createNewDocument}
-                className="w-full mb-2"
+                className="w-full mb-2 bg-transparent text-[var(--brand-green)] shadow-none flex items-center justify-start gap-2 hover:bg-green-800/10 cursor-pointer"
               >
+                <Plus className="h-4 w-4" />
                 New Document
               </Button>
               <Button
                 onClick={handleExportPDF}
                 variant="outline"
-                className="w-full flex items-center justify-center"
+                className="w-full flex items-center justify-start gap-2 border-none shadow-none text-black/80 hover:bg-gray-100 cursor-pointer"
                 disabled={!content}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Export to PDF
+                <span>Export to PDF</span>
               </Button>
             </div>
             
@@ -503,20 +511,22 @@ function DocumentPageContent() {
                 <p className="text-gray-500 text-sm">No documents yet</p>
               ) : (
                 <div className="space-y-2">
+                  <span className="text-gray-400 text-xs mb-4">Recents</span>
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className={`group relative rounded-lg border hover:bg-gray-50 transition-colors ${
-                        currentDocId === doc.id ? 'border-black bg-black/5' : 'border-gray-200'
+                      className={`group relative rounded-lg border hover:bg-gray-50 transition-colors mt-4 ${
+                        currentDocId === doc.id ? 'border-gray-300 bg-black/5' : 'border-gray-200'
                       }`}
                     >
                       <Button
+                        id={`${doc.id}-button`}
                         onClick={() => loadDocument(doc)}
                         variant="ghost"
-                        className="w-full justify-start text-left p-3 pr-10 h-auto"
+                        className="w-full flex items-center justify-start text-left p-3 pr-10 h-auto cursor-pointer"
                       >
                         <div className="font-medium text-gray-900 truncate">{doc.title}</div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-gray-500">
                           {new Date(doc.updatedAt).toLocaleDateString()}
                         </div>
                       </Button>
@@ -531,7 +541,7 @@ function DocumentPageContent() {
                         }}
                         variant="ghost"
                         size="icon"
-                        className="absolute top-1/2 right-2 transform -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
+                        className="absolute top-1/2 right-2 transform -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 transition-all duration-200 cursor-pointer"
                         title="Delete document"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -542,17 +552,26 @@ function DocumentPageContent() {
               )}
             </div>
             
-            {/* Logout Button */}
-            <div className="p-4 border-t border-gray-200">
-              <SignOutButton>
-                <Button
-                  variant="ghost"
-                  className="w-full flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </SignOutButton>
+            {/* User Menu */}
+            <div className="p-4">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 w-8 h-8 cursor-pointer">
+                    <span className="text-black/60 text-sm font-bold">{firstNameInitial}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-white border-gray-200 mx-4 my-2">
+                  {/* logout button */}
+                  <DropdownMenuItem className="text-xs hover:bg-red-50" asChild>
+                    <SignOutButton>
+                      <div className="flex items-center justify-between w-full">
+                        <LogOut className="h-3 w-3 mr-2 text-red-600 " />
+                        Logout
+                      </div>
+                    </SignOutButton>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </motion.div>
         )}
@@ -579,7 +598,7 @@ function DocumentPageContent() {
                   onClick={() => setShowHistory(true)}
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 cursor-pointer"
                 >
                   <Menu className="h-5 w-5 text-gray-600" />
                 </Button>
@@ -604,7 +623,7 @@ function DocumentPageContent() {
                       onClick={() => setIsEditingTitle(false)}
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-6 w-6 cursor-pointer"
                     >
                       <Check className="h-4 w-4 text-green-600" />
                     </Button>
@@ -624,7 +643,7 @@ function DocumentPageContent() {
                       onClick={() => setIsEditingTitle(true)}
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                     >
                       <Edit2 className="h-4 w-4 text-gray-500" />
                     </Button>
