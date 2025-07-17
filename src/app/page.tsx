@@ -166,7 +166,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-8 text-black mt-0 lg:mb-1">
               <span className="flex items-center text-sm text-black/80">
                 <CheckCircle className="h-4 w-4 text-green-600 mr-2 flex-shrink-0" />
-                Fact-checking
+                Fact Check
               </span>
               <span className="flex items-center text-sm text-black/80">
                 <Search className="h-4 w-4 text-blue-600 mr-2 flex-shrink-0" />
@@ -174,7 +174,7 @@ export default function HomePage() {
               </span>
               <span className="flex items-center text-sm text-black/80">
                 <Zap className="h-4 w-4 text-yellow-600 mr-2 flex-shrink-0" />
-                Thinking prompts
+                Grammer Check
               </span>
             </div>
 

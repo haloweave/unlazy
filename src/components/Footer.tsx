@@ -26,18 +26,22 @@ export default function Footer() {
         </div> */}
         <div className="flex flex-row items-center justify-end w-1/3 gap-2">
           <span className="text-xs text-black/80">Connect with us:</span>
-          <Image
-            src="/assets/ph-logo.png"
-            alt="product hunt logo"
-            width={16}
-            height={16}
-          />
-          <Image
-            src="/assets/x-logo.png"
-            alt="x logo"
-            width={16}
-            height={16}
-          />
+          <a href="https://www.producthunt.com/products/unlazy-writer" target="_blank" rel="noopener noreferrer">
+            <Image
+              src="/assets/ph-logo.png"
+              alt="product hunt logo"
+              width={16}
+              height={16}
+            />
+          </a>
+          <a href="https://x.com/IdeaTBD" target="_blank" rel="noopener noreferrer">
+            <Image
+              src="/assets/x-logo.png"
+              alt="x logo"
+              width={16}
+              height={16}
+            />
+          </a>
         </div>
       </div>
 
@@ -45,11 +49,11 @@ export default function Footer() {
       <div className="flex flex-row items-center justify-between w-full">
         <p className="text-xs text-gray-500 w-1/3"><span>Powered by </span><span className="font-semibold">Haloweave </span><span>- Your AI Product Partner</span></p>
         <div className="flex flex-row items-center justify-center w-1/3 gap-4">
-            <span className="text-xs text-gray-500">Privacy Policy</span>
-            <span className="text-xs text-gray-500">Terms of Service</span>
+            <a href="/privacy-policy" className="text-xs text-gray-500 hover:text-gray-700">Privacy Policy</a>
+            <a href="/terms-of-service" className="text-xs text-gray-500 hover:text-gray-700">Terms of Service</a>
         </div>
         <span className="text-xs text-gray-500 w-1/3 flex justify-end">
-          © 2025 unlazywritr. All Rights Reserved
+          © 2025 unlazywriter. All Rights Reserved
         </span>
       </div>
     </footer>
