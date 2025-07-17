@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle, ArrowUp, AlertOctagon, RefreshCw, Loader2, Settings, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowUp, AlertOctagon, RefreshCw, Loader2, Settings, Trash2, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 import ReactMarkdown from 'react-markdown';
@@ -417,7 +417,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
 
   return (
     <Card className="h-[704px] overflow-hidden bg-white text-gray-900 border-gray-200 shadow-lg">
-      <CardContent className="h-full flex flex-col pt-3 px-3 pb-0 space-y-3">
+      <CardContent className="h-full flex flex-col px-3 pb-0 space-y-3">
         {/* Compact Header - Search & Controls */}
         <div className="space-y-2 relative">
           {/* Top Row - Search Input and Top-Right Buttons */}
@@ -440,7 +440,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   onClick={() => performSearch(searchQuery)}
                   disabled={isLoadingResearch || !searchQuery.trim()}
                   size="sm"
-                  className="h-7 w-7 p-0 bg-[var(--brand-green)] text-white"
+                  className="h-7 w-7 p-0 bg-[var(--brand-green)] hover:bg-[var(--brand-green)]/80 hover:text-white text-white cursor-pointer"
                   variant="outline"
                 >
                   {isLoadingResearch ? (
@@ -454,7 +454,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
               {/* Settings Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 cursor-pointer">
                     <Settings className="h-3 w-3 text-gray-500" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -467,7 +467,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                       <Switch
                         checked={factCheckEnabled}
                         onCheckedChange={setFactCheckEnabled}
-                        className="data-[state=checked]:bg-gray-600"
+                        className="data-[state=checked]:bg-[var(--brand-green)] cursor-pointer"
                       />
                     </div>
                   </DropdownMenuItem>
@@ -477,13 +477,13 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                       <Switch
                         checked={grammarCheckEnabled}
                         onCheckedChange={setGrammarCheckEnabled}
-                        className="data-[state=checked]:bg-gray-600"
+                        className="data-[state=checked]:bg-[var(--brand-green)] cursor-pointer"
                       />
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-gray-200" />
                   <DropdownMenuItem 
-                    className="flex items-center justify-between text-xs text-black/80 hover:text-red-600 hover:bg-red-50"
+                    className="flex items-center justify-between text-xs text-black/80 hover:text-red-600 hover:bg-red-50 cursor-pointer"
                     onClick={clearIgnoredFactChecks}
                     disabled={ignoredFactChecks.size === 0}
                   >
@@ -492,7 +492,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-gray-200" />
                   <DropdownMenuItem 
-                    className="flex items-center justify-between text-xs text-black/80 hover:text-red-600 hover:bg-red-50"
+                    className="flex items-center justify-between text-xs text-black/80 hover:text-red-600 hover:bg-red-50 cursor-pointer"
                     onClick={clearHistory}
                     disabled={researchHistory.length === 0}
                   >
@@ -844,10 +844,10 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
               {summary && (
                 <button
                   onClick={() => loadSession(-1)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
+                  className={`w-2 h-2 rounded-full transition-colors cursor-pointer ${
                     currentSessionIndex === -1 
-                      ? 'bg-[var(--brand-green)]' 
-                      : 'bg-green-800/40 hover:bg-green-800/50'
+                      ? 'bg-gray-900' 
+                      : 'bg-gray-400 hover:bg-gray-300'
                   }`}
                   title="Current session"
                 />
@@ -857,7 +857,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                 <button
                   key={session.id}
                   onClick={() => loadSession(index)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
+                  className={`w-2 h-2 rounded-full transition-colors cursor-pointer ${
                     currentSessionIndex === index 
                       ? 'bg-gray-900' 
                       : 'bg-gray-300 hover:bg-gray-400'
