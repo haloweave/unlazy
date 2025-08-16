@@ -7,6 +7,24 @@ import { z } from 'zod';
 
 const exa = new Exa(process.env.EXA_API_KEY);
 
+// Rate limiting for API calls
+const API_RATE_LIMIT_DELAY = 200; // 200ms delay between requests
+let lastApiCallTime = 0;
+
+// Helper function to respect rate limits
+async function rateLimitedApiCall<T>(apiCall: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const timeSinceLastCall = now - lastApiCallTime;
+  
+  if (timeSinceLastCall < API_RATE_LIMIT_DELAY) {
+    const delayNeeded = API_RATE_LIMIT_DELAY - timeSinceLastCall;
+    await new Promise(resolve => setTimeout(resolve, delayNeeded));
+  }
+  
+  lastApiCallTime = Date.now();
+  return await apiCall();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -65,14 +83,14 @@ Enhanced query:`
     switch (type) {
       case 'search':
         // General search for research
-        results = await exa.searchAndContents(enhancedQuery, {
+        results = await rateLimitedApiCall(() => exa.searchAndContents(enhancedQuery, {
           type: 'neural',
           useAutoprompt: true,
           numResults: 5,
           text: true,
           highlights: true,
           includeImageUrls: false,
-        });
+        }));
         break;
 
       case 'factcheck':
@@ -84,7 +102,7 @@ Enhanced query:`
 
       case 'academic':
         // Academic and research-focused search
-        results = await exa.searchAndContents(enhancedQuery, {
+        results = await rateLimitedApiCall(() => exa.searchAndContents(enhancedQuery, {
           type: 'neural',
           useAutoprompt: true,
           numResults: 4,
@@ -101,7 +119,7 @@ Enhanced query:`
             'nature.com',
             'sciencedirect.com'
           ],
-        });
+        }));
         break;
 
       default:

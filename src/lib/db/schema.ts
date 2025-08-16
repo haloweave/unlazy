@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, integer, jsonb, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, index } from 'drizzle-orm/pg-core'
 
 // Users table
 export const users = pgTable('users', {
@@ -19,7 +19,10 @@ export const documents = pgTable('documents', {
   content: text('content').notNull().default(''),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
+}, (table) => ({
+  userIdIdx: index('documents_user_id_idx').on(table.userId),
+  updatedAtIdx: index('documents_updated_at_idx').on(table.updatedAt),
+}))
 
 // Chat messages table
 export const chats = pgTable('chats', {
@@ -30,7 +33,10 @@ export const chats = pgTable('chats', {
   timestamp: timestamp('timestamp').defaultNow().notNull(),
   topicTag: text('topic_tag'),
   sessionId: text('session_id').notNull(),
-})
+}, (table) => ({
+  userIdIdx: index('chats_user_id_idx').on(table.userId),
+  sessionIdIdx: index('chats_session_id_idx').on(table.sessionId),
+}))
 
 // Brain metrics table
 export const brainMetrics = pgTable('brain_metrics', {

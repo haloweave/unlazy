@@ -4,6 +4,24 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 import crypto from 'crypto';
 
+// Rate limiting for API calls
+const API_RATE_LIMIT_DELAY = 150; // 150ms delay between requests
+let lastApiCallTime = 0;
+
+// Helper function to respect rate limits
+async function rateLimitedApiCall<T>(apiCall: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const timeSinceLastCall = now - lastApiCallTime;
+  
+  if (timeSinceLastCall < API_RATE_LIMIT_DELAY) {
+    const delayNeeded = API_RATE_LIMIT_DELAY - timeSinceLastCall;
+    await new Promise(resolve => setTimeout(resolve, delayNeeded));
+  }
+  
+  lastApiCallTime = Date.now();
+  return await apiCall();
+}
+
 export interface GrammarSpellingIssue {
   text: string;
   type: 'spelling';
@@ -104,7 +122,7 @@ export async function POST(request: NextRequest) {
     console.log('Grammar check input text:', plainText);
     console.log('Grammar check text length:', plainText.length);
 
-    const { object: issuesObject } = await generateObject({
+    const { object: issuesObject } = await rateLimitedApiCall(() => generateObject({
       model: openai('gpt-4o-mini'),
       prompt: `
         You are a strict spelling and grammar checker. ONLY flag actual errors.
@@ -151,7 +169,7 @@ export async function POST(request: NextRequest) {
           })
         ),
       }),
-    });
+    }));
 
     console.log('Grammar check raw AI response:', JSON.stringify(issuesObject, null, 2));
 

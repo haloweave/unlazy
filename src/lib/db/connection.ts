@@ -42,7 +42,7 @@ if (connectionString) {
     console.log('Attempting to connect to database with URL:', connectionString.substring(0, 30) + '...')
     
     client = postgres(connectionString, { 
-      max: 5,
+      max: 30,
       prepare: false,
       idle_timeout: 20,
       max_lifetime: 60 * 30,
