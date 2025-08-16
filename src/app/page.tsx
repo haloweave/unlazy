@@ -11,8 +11,8 @@ import Footer from "@/components/Footer";
 
 // Cycling typing animation with backspace effect
 function CyclingTypewriter({
-  baseText="Built to Assist",
-  cyclingWords=["—Not to Write.", ", Not to Write."],
+  baseText = "Built to Assist",
+  cyclingWords = ["—Not to Write.", ", Not to Write."],
   className = "",
   typeSpeed = 120,
   deleteSpeed = 80,
@@ -56,11 +56,11 @@ function CyclingTypewriter({
 
     if (!isPaused) {
       const timeout = setTimeout(() => {
-          if (isDeleting) {
-            setDisplayedText(baseText + currentWordPart);
-          } else {
-            setDisplayedText(baseText + currentWordPart);
-          }
+        if (isDeleting) {
+          setDisplayedText(baseText + currentWordPart);
+        } else {
+          setDisplayedText(baseText + currentWordPart);
+        }
       }, isDeleting ? deleteSpeed : typeSpeed);
 
       return () => clearTimeout(timeout);
@@ -101,21 +101,21 @@ export default function HomePage() {
         )`
       }}
     >
-      <Navbar /> 
+      <Navbar />
       {/* Document-like styling with subtle shadow */}
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-0 mt-8">
         <div className="max-w-4xl mx-auto text-center px-4">
           {/* Hero Section - Centered */}
           <div className="mb-8 flex flex-col items-center justify-center">
-          <Image
-            className="mb-4 w-40 h-9 sm:w-60 sm:h-14 md:w-80 md:h-18 lg:w-[400px] lg:h-[90px] md:mt-2 lg:mt-0"
-            src="/assets/unlazy-logo.png"
-            alt="Unlazy"
-            width={0}
-            height={0}
-            sizes="(max-width: 768px) 160px, (max-width: 1024px) 240px, 400px"
-            style={{ height: "auto" }}
-          />
+            <Image
+              className="mb-4 w-40 h-9 sm:w-60 sm:h-14 md:w-80 md:h-18 lg:w-[400px] lg:h-[90px] md:mt-2 lg:mt-0"
+              src="/assets/unlazy-logo.png"
+              alt="Unlazy"
+              width={0}
+              height={0}
+              sizes="(max-width: 768px) 160px, (max-width: 1024px) 240px, 400px"
+              style={{ height: "auto" }}
+            />
 
             <div className="text-3xl sm:text-3xl md:text-4xl lg:text-6xl font-light text-black/90 md:mt-4 lg:mt-2  leading-tight">
               <CyclingTypewriter
@@ -156,10 +156,16 @@ export default function HomePage() {
                   couldn’t recall a single sentence they had just written.”
                 </span>
               </p>
-              <div className="flex flex-row items-center justify-between w-full mt-0 md:mt-1">
-                <Image src="/assets/mit-logo.png" alt="Unlazy" width={150} height={84} />
-                <Link target="_blank" className="text-xs underline text-black/60 hover:text-black/80" href="https://www.media.mit.edu/publications/your-brain-on-chatgpt/">Your brain on chatGPT {'>'}</Link>
-              </div>
+                <div className="flex flex-row items-center justify-center w-full mt-4 md:mt-5">
+                {/* <Image src="/assets/mit-logo.png" alt="Unlazy" width={150} height={84} /> */}
+                <Link
+                  target="_blank"
+                  className="text-xs underline text-black/60 hover:text-black/80"
+                  href="https://www.media.mit.edu/publications/your-brain-on-chatgpt/"
+                >
+                  Your brain on chatGPT {'>'}
+                </Link>
+                </div>
             </div>
 
             {/* Minimal Features */}
