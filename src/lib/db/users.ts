@@ -1,6 +1,7 @@
 import { db, withRetry } from './connection'
 import { users } from './schema'
 import { eq } from 'drizzle-orm'
+import { sendWhatsAppNotification } from '../whatsapp'
 
 export async function ensureUserExists(clerkUserId: string, email: string) {
   try {
@@ -39,6 +40,16 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
 
     console.log(`User ${clerkUserId} created successfully`)
     console.log(`New user newsletter status - Dialog shown: ${newUser.newsletterDialogShown}, Subscribed: ${newUser.newsletterSubscribed}`)
+    
+    // Send WhatsApp notification for new user registration
+    const notificationNumber = process.env.WHATSAPP_NOTIFICATION_NUMBER || "19298995822";
+    try {
+      await sendWhatsAppNotification(notificationNumber, email);
+      console.log(`WhatsApp notification sent for new user: ${email}`);
+    } catch (error) {
+      console.error(`Failed to send WhatsApp notification for ${email}:`, error);
+    }
+    
     return newUser
   } catch (error) {
     console.error('Error ensuring user exists:', error)
