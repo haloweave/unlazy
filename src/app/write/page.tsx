@@ -477,6 +477,7 @@ function DocumentPageContent() {
 
       {/* Power User Feedback Modal */}
       <PowerUserFeedbackModal 
+        key={showPowerUserFeedback ? 'open' : 'closed'}
         isOpen={showPowerUserFeedback}
         onClose={() => setShowPowerUserFeedback(false)}
       />

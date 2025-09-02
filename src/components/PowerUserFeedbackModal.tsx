@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,14 @@ export default function PowerUserFeedbackModal({ isOpen, onClose }: PowerUserFee
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Reset state when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setFeedback('');
+      setIsSubmitting(false);
+    }
+  }, [isOpen]);
+
   const handleSubmit = async () => {
     if (!feedback.trim()) return;
 
@@ -28,13 +36,13 @@ export default function PowerUserFeedbackModal({ isOpen, onClose }: PowerUserFee
 
       if (response.ok) {
         setFeedback('');
+        setIsSubmitting(false);
         onClose();
       } else {
         throw new Error('Failed to submit feedback');
       }
     } catch (error) {
       console.error('Failed to submit power user feedback:', error);
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -47,12 +55,28 @@ export default function PowerUserFeedbackModal({ isOpen, onClose }: PowerUserFee
       body: JSON.stringify({ feedback: 'User skipped feedback' }),
     }).catch(console.error);
     
+    setFeedback('');
+    setIsSubmitting(false);
     onClose();
   };
 
+  const handleClose = () => {
+    setFeedback('');
+    setIsSubmitting(false);
+    onClose();
+  };
+
+  // Don't render anything if not open to ensure clean unmount
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog open={isOpen} onOpenChange={handleClose} modal>
+      <DialogContent 
+        className="sm:max-w-[500px]" 
+        onPointerDownOutside={handleClose} 
+        onEscapeKeyDown={handleClose}
+        onInteractOutside={handleClose}
+      >
         <DialogHeader>
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-1 text-yellow-500">
