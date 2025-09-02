@@ -1,6 +1,6 @@
 import { db, withRetry } from './connection'
 import { users } from './schema'
-import { eq } from 'drizzle-orm'
+import { eq, count } from 'drizzle-orm'
 import { sendWhatsAppNotification } from '../whatsapp'
 
 export async function ensureUserExists(clerkUserId: string, email: string) {
@@ -44,8 +44,9 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
     // Send WhatsApp notification for new user registration
     const notificationNumber = process.env.WHATSAPP_NOTIFICATION_NUMBER || "19298995822";
     try {
-      await sendWhatsAppNotification(notificationNumber, email);
-      console.log(`WhatsApp notification sent for new user: ${email}`);
+      const totalUsers = await getTotalUserCount();
+      await sendWhatsAppNotification(notificationNumber, email, totalUsers);
+      console.log(`WhatsApp notification sent for new user: ${email} (Total users: ${totalUsers})`);
     } catch (error) {
       console.error(`Failed to send WhatsApp notification for ${email}:`, error);
     }
@@ -87,6 +88,26 @@ export async function updateUserNewsletterStatus(
   } catch (error) {
     console.error('Error updating user newsletter status:', error)
     return null
+  }
+}
+
+export async function getTotalUserCount(): Promise<number> {
+  try {
+    if (!db) {
+      console.warn('Database not available, returning 0 for user count')
+      return 0
+    }
+
+    const result = await withRetry(async () => {
+      return await db!
+        .select({ count: count() })
+        .from(users)
+    })
+
+    return result[0]?.count || 0
+  } catch (error) {
+    console.error('Error getting total user count:', error)
+    return 0
   }
 }
 

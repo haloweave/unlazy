@@ -4,24 +4,6 @@ interface WhatsAppConfig {
   apiUrl: string;
 }
 
-interface WhatsAppTemplateMessage {
-  messaging_product: "whatsapp";
-  to: string;
-  type: "template";
-  template: {
-    name: string;
-    language: {
-      code: string;
-    };
-    components?: Array<{
-      type: string;
-      parameters: Array<{
-        type: string;
-        text: string;
-      }>;
-    }>;
-  };
-}
 
 const whatsappConfig: WhatsAppConfig = {
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || "772395815954550",
@@ -31,18 +13,22 @@ const whatsappConfig: WhatsAppConfig = {
 
 export async function sendWhatsAppNotification(
   recipientNumber: string,
-  userEmail: string
+  userEmail: string,
+  totalUsers?: number
 ): Promise<boolean> {
   try {
-    const message: WhatsAppTemplateMessage = {
+    let customMessage = `🎉 New user signed up to unlazywriter.com!\n\nEmail: ${userEmail}\n\nTime: ${new Date().toLocaleString()}`;
+    
+    if (totalUsers !== undefined && totalUsers > 0) {
+      customMessage += `\n\n📊 Total users: ${totalUsers}`;
+    }
+
+    const message = {
       messaging_product: "whatsapp",
       to: recipientNumber,
-      type: "template",
-      template: {
-        name: "hello_world",
-        language: {
-          code: "en_US"
-        }
+      type: "text",
+      text: {
+        body: customMessage
       }
     };
 
