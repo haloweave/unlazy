@@ -26,13 +26,6 @@ export async function POST(req: Request) {
 
     const url = `https://api.beehiiv.com/v2/publications/${beehiivPublicationId}/subscriptions`
     
-    // Log the equivalent curl command
-    console.log('\n=== BEEHIIV API CALL ===')
-    console.log(`curl -X POST "${url}" \\`)
-    console.log(`  -H "Authorization: Bearer ${beehiivApiKey.substring(0, 10)}..." \\`)
-    console.log(`  -H "Content-Type: application/json" \\`)
-    console.log(`  -d '${JSON.stringify(requestBody, null, 2)}'`)
-    console.log('=======================\n')
 
     const response = await fetch(url, {
       method: 'POST',
@@ -43,7 +36,6 @@ export async function POST(req: Request) {
       body: JSON.stringify(requestBody),
     })
 
-    console.log(`Beehiiv API response status: ${response.status}`)
     
     if (!response.ok) {
       const errorData = await response.json()
@@ -52,7 +44,6 @@ export async function POST(req: Request) {
     }
 
     const successData = await response.json()
-    console.log('Beehiiv API success response:', successData)
     
     return new NextResponse('Successfully subscribed', { status: 200 })
   } catch (error) {

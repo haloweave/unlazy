@@ -73,7 +73,6 @@ Enhanced query:`
           enhancedQuery = text.trim();
         }
       } catch {
-        console.log('LLM enhancement failed, using original query');
         // Continue with original query if LLM fails
       }
     }

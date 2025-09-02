@@ -21,13 +21,10 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
     })
 
     if (existingUser.length > 0) {
-      console.log(`User ${clerkUserId} found in database`)
-      console.log(`Newsletter status - Dialog shown: ${existingUser[0].newsletterDialogShown}, Subscribed: ${existingUser[0].newsletterSubscribed}`)
       return existingUser[0]
     }
 
     // Create new user if doesn't exist (this handles previously logged in users)
-    console.log(`Creating new user ${clerkUserId} in database`)
     const [newUser] = await withRetry(async () => {
       return await db!
         .insert(users)
@@ -38,15 +35,12 @@ export async function ensureUserExists(clerkUserId: string, email: string) {
         .returning()
     })
 
-    console.log(`User ${clerkUserId} created successfully`)
-    console.log(`New user newsletter status - Dialog shown: ${newUser.newsletterDialogShown}, Subscribed: ${newUser.newsletterSubscribed}`)
     
     // Send WhatsApp notification for new user registration
     const notificationNumber = process.env.WHATSAPP_NOTIFICATION_NUMBER || "19298995822";
     try {
       const totalUsers = await getTotalUserCount();
       await sendWhatsAppNotification(notificationNumber, email, totalUsers);
-      console.log(`WhatsApp notification sent for new user: ${email} (Total users: ${totalUsers})`);
     } catch (error) {
       console.error(`Failed to send WhatsApp notification for ${email}:`, error);
     }
@@ -82,8 +76,6 @@ export async function updateUserNewsletterStatus(
         .returning()
     })
 
-    console.log(`User ${clerkUserId} newsletter status updated successfully`)
-    console.log(`Updated newsletter status - Dialog shown: ${updatedUser.newsletterDialogShown}, Subscribed: ${updatedUser.newsletterSubscribed}`)
     return updatedUser
   } catch (error) {
     console.error('Error updating user newsletter status:', error)
@@ -129,7 +121,6 @@ export async function incrementDocumentCount(clerkUserId: string) {
         .returning()
     })
 
-    console.log(`User ${clerkUserId} document count incremented to ${updatedUser.documentCount}`)
     return updatedUser
   } catch (error) {
     console.error('Error incrementing document count:', error)
@@ -155,7 +146,6 @@ export async function markPowerUserFeedbackShown(clerkUserId: string) {
         .returning()
     })
 
-    console.log(`User ${clerkUserId} power user feedback marked as shown`)
     return updatedUser
   } catch (error) {
     console.error('Error marking power user feedback as shown:', error)
@@ -180,7 +170,6 @@ export async function resetAllNewsletterDialogStatus() {
         .where(eq(users.newsletterDialogShown, true))
     })
 
-    console.log('All users newsletter dialog status reset successfully')
     return true
   } catch (error) {
     console.error('Error resetting newsletter dialog status:', error)

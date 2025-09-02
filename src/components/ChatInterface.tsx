@@ -87,7 +87,6 @@ export default function ChatInterface() {
       }
       // Trigger brain food animation (this would be handled by a global state or context)
       // For now, we'll just log it
-      // console.log(`Earned ${data.brainFoodEarned} brain food!`);
     } catch (error) {
       console.error("Error sending message:", error);
       setMessages(prev => prev.filter(msg => !msg.isThinking));

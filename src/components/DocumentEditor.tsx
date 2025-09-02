@@ -393,7 +393,6 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
     })
     
     if (!found) {
-      console.log('Text not found in document:', text)
     }
   }, [highlightText, editor])
 

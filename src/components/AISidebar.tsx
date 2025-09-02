@@ -146,7 +146,6 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
         followUpQuestions: data.followUpQuestions || []
       });
       setCurrentSessionIndex(-1);
-      console.log('Received follow-up questions:', data.followUpQuestions); // Debug log
     } catch (error) {
       console.error('Research error:', error);
       setSummary('');
@@ -170,7 +169,6 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
       return;
     }
 
-    console.log('Sending to fact-check API:', textToFactCheck);
     setIsLoadingFactCheck(true);
     try {
       const response = await fetch('/api/factcheck', {
@@ -757,7 +755,6 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                       animate={{ opacity: 1, y: 0 }}
                       className="bg-white hover:bg-orange-50 border border-orange-100 border-l-8 border-l-orange-500 rounded-md p-2 space-y-1.5 cursor-pointer"
                       onClick={() => {
-                        console.log('Grammar issue clicked:', issue.text);
                         onHighlightText?.(issue.text);
                       }}
                     >
@@ -814,7 +811,6 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                             : 'hover:bg-gray-50 border-gray-100 border-l-gray-500'
                       }`}
                       onClick={() => {
-                        console.log('Fact check issue clicked:', issue.text);
                         onHighlightText?.(issue.text);
                       }}
                     >

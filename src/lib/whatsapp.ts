@@ -25,9 +25,11 @@ export async function sendWhatsAppNotification(
 
     const message = {
       messaging_product: "whatsapp",
+      recipient_type: "individual",
       to: recipientNumber,
       type: "text",
       text: {
+        preview_url: false,
         body: customMessage
       }
     };
@@ -51,8 +53,6 @@ export async function sendWhatsAppNotification(
     }
 
     const result = await response.json();
-    console.log('WhatsApp message sent successfully:', result);
-    console.log(`New user registration notification sent for: ${userEmail}`);
     
     return true;
   } catch (error) {
@@ -68,9 +68,11 @@ export async function sendCustomWhatsAppMessage(
   try {
     const messagePayload = {
       messaging_product: "whatsapp",
+      recipient_type: "individual",
       to: recipientNumber,
       type: "text",
       text: {
+        preview_url: false,
         body: message
       }
     };
@@ -94,7 +96,6 @@ export async function sendCustomWhatsAppMessage(
     }
 
     const result = await response.json();
-    console.log('WhatsApp message sent successfully:', result);
     
     return true;
   } catch (error) {

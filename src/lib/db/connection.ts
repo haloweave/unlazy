@@ -9,7 +9,6 @@ const connectionString = process.env.DATABASE_URL
 if (!connectionString) {
   console.error('DATABASE_URL not found in environment variables')
 } else {
-  console.log('Database URL found, attempting connection...')
 }
 
 // Create the connection only if DATABASE_URL exists
@@ -27,7 +26,6 @@ export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3):
       // Only retry on connection errors
       if (error instanceof Error && 'code' in error && 
           (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT')) {
-        console.log(`Database operation failed, retrying (${i + 1}/${maxRetries})...`)
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))) // Exponential backoff
       } else {
         throw error // Don't retry on other errors
@@ -39,7 +37,6 @@ export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3):
 
 if (connectionString) {
   try {
-    console.log('Attempting to connect to database with URL:', connectionString.substring(0, 30) + '...')
     
     client = postgres(connectionString, { 
       max: 30,
@@ -58,12 +55,10 @@ if (connectionString) {
 
     // Create the drizzle instance with schema
     db = drizzle(client, { schema })
-    console.log('Database connection established successfully')
     
     // Test the connection with retry
     withRetry(async () => {
       await client!`SELECT 1`
-      console.log('Database connection test successful')
     }).catch((error) => {
       console.error('Database connection test failed after retries:', error)
       // Don't fail completely, just log the error

@@ -111,7 +111,6 @@ export async function POST(request: NextRequest) {
     // Check cache first
     const cached = grammarCheckCache.get(contentHash);
     if (cached && cached.expiresAt > Date.now()) {
-      console.log('Returning cached grammar-check result for hash:', contentHash);
       return NextResponse.json({
         issues: cached.result,
         message: 'Grammar check completed (cached)',
@@ -119,8 +118,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log('Grammar check input text:', plainText);
-    console.log('Grammar check text length:', plainText.length);
 
     const { object: issuesObject } = await rateLimitedApiCall(() => generateObject({
       model: openai('gpt-4o-mini'),
@@ -171,7 +168,6 @@ export async function POST(request: NextRequest) {
       }),
     }));
 
-    console.log('Grammar check raw AI response:', JSON.stringify(issuesObject, null, 2));
 
     // Filter out problematic issues
     const filteredIssues = issuesObject.issues.filter(issue => {
@@ -185,20 +181,17 @@ export async function POST(request: NextRequest) {
       const normalizedSuggestion = suggestedText.replace(/[^\w\s]/g, '').trim();
       
       if (normalizedOriginal === normalizedSuggestion) {
-        console.log('Filtered out self-referential issue:', issue);
         return false;
       }
       
       // Filter out issues where the suggestion contains the entire original text
       if (suggestionText.includes(originalText) && suggestionText.length > originalText.length * 1.2) {
-        console.log('Filtered out sentence-level suggestion:', issue);
         return false;
       }
       
       // Filter out suggestions that are just the original text with minor punctuation changes
       const similarity = calculateSimilarity(normalizedOriginal, normalizedSuggestion);
       if (similarity > 0.95) {
-        console.log('Filtered out highly similar suggestion:', issue, 'similarity:', similarity);
         return false;
       }
       
@@ -215,7 +208,6 @@ export async function POST(request: NextRequest) {
       );
       
       if (isUnhelpful) {
-        console.log('Filtered out unhelpful suggestion:', issue);
         return false;
       }
       
@@ -227,7 +219,6 @@ export async function POST(request: NextRequest) {
       ];
       
       if (commonWords.includes(originalText)) {
-        console.log('Filtered out common word:', issue);
         return false;
       }
       
@@ -245,7 +236,6 @@ export async function POST(request: NextRequest) {
       );
       
       if (containsFactualKeywords) {
-        console.log('Filtered out factual issue:', issue);
         return false;
       }
       
@@ -257,7 +247,6 @@ export async function POST(request: NextRequest) {
       });
       
       if (isRecentlyFixed) {
-        console.log('Filtered out recently fixed issue:', issue);
         return false;
       }
       
@@ -274,8 +263,6 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    console.log('Grammar check final issues count:', issues.length);
-    console.log('Grammar check final issues:', JSON.stringify(issues, null, 2));
 
     // Store result in cache
     grammarCheckCache.set(contentHash, {
@@ -291,7 +278,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('Grammar check completed, result cached with hash:', contentHash);
 
     return NextResponse.json({
       issues,
