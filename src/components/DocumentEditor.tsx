@@ -424,8 +424,9 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
       
       editor.view.dispatch(tr)
       
-      // Extra measure: force a view update
-      editor.view.updateState(editor.view.state, editor.view.state.tr.setMeta('forceUpdate', true))
+      // Extra measure: force a view update by dispatching another transaction
+      const forceUpdateTr = editor.view.state.tr.setMeta('forceViewUpdate', true)
+      editor.view.dispatch(forceUpdateTr)
     }
   }, [spellingIssues, factCheckIssues, ignoredFactChecks, editor])
 
