@@ -57,12 +57,17 @@ const ErrorDecorations = Extension.create({
             return DecorationSet.empty
           },
           apply(transaction, decorationSet, oldState, newState) {
+            // Always rebuild decorations when we have a force update or when document changes
+            const forceUpdate = transaction.getMeta('forceDecorationsUpdate')
+            const clearAll = transaction.getMeta('clearAllDecorations')
             const errors = extension.options.errors
             
-            if (!errors || errors.length === 0) {
+            // Force clear if explicitly requested or no errors
+            if (clearAll || !errors || errors.length === 0) {
               return DecorationSet.empty
             }
 
+            // Always rebuild decorations to ensure they're current
             const decorations: Decoration[] = []
             const doc = newState.doc
             
@@ -400,13 +405,27 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
         return !ignoredFactChecks.has(id);
       });
       
+      const allErrors = [...spellingIssues, ...filteredFactCheckIssues];
+      
       editor.extensionManager.extensions.forEach(extension => {
         if (extension.name === 'errorDecorations') {
-          extension.options.errors = [...spellingIssues, ...filteredFactCheckIssues]
+          extension.options.errors = allErrors
         }
       })
-      // Force update decorations
-      editor.view.dispatch(editor.state.tr)
+      
+      // Force complete rebuild of decorations
+      const { tr } = editor.state
+      tr.setMeta('forceDecorationsUpdate', true)
+      
+      // Additional force update - trigger editor content refresh
+      if (allErrors.length === 0) {
+        tr.setMeta('clearAllDecorations', true)
+      }
+      
+      editor.view.dispatch(tr)
+      
+      // Extra measure: force a view update
+      editor.view.updateState(editor.view.state, editor.view.state.tr.setMeta('forceUpdate', true))
     }
   }, [spellingIssues, factCheckIssues, ignoredFactChecks, editor])
 
@@ -723,6 +742,7 @@ export default function DocumentEditor({ content = '', onChange, onResearchReque
         <EditorContent 
           editor={editor} 
           className="document-editor"
+          spellCheck={false}
         />
         
         {/* Floating Research Icon */}

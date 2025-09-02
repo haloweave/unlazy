@@ -406,6 +406,14 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     const issueId = `${issue.text}-${issue.position?.start}`;
     const newDismissed = new Set([...dismissedSpellingIssues, issueId]);
     setDismissedSpellingIssues(newDismissed);
+    
+    // Also remove this issue from the main spelling issues list to clear underlines
+    const updatedIssues = grammarSpellingIssues.filter(existingIssue => {
+      const existingId = `${existingIssue.text}-${existingIssue.position?.start}`;
+      return existingId !== issueId;
+    });
+    setGrammarSpellingIssues(updatedIssues);
+    onSpellingIssuesChange?.(updatedIssues);
   };
 
   // Function to clear all dismissed spelling issues
@@ -829,18 +837,6 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                           <p className="text-xs text-gray-700 font-medium break-words overflow-hidden w-full">&ldquo;{issue.text}&rdquo;</p>
                           <p className="text-xs text-[var(--brand-green)] break-words overflow-hidden w-full">→ {issue.suggestion}</p>
                         </div>
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            ignoreFactCheck(issue);
-                          }}
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-600 flex-shrink-0"
-                          title="Ignore this fact check"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
                       </div>
                     </motion.div>
                   ))}
