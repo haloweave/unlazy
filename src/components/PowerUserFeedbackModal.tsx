@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useState, useEffect, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Star } from 'lucide-react';
+import { Loader2, Star, X } from 'lucide-react';
 
 interface PowerUserFeedbackModalProps {
   isOpen: boolean;
@@ -15,6 +15,12 @@ export default function PowerUserFeedbackModal({ isOpen, onClose }: PowerUserFee
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handleClose = useCallback(() => {
+    setFeedback('');
+    setIsSubmitting(false);
+    onClose();
+  }, [onClose]);
+
   // Reset state when modal is closed
   useEffect(() => {
     if (!isOpen) {
@@ -22,6 +28,26 @@ export default function PowerUserFeedbackModal({ isOpen, onClose }: PowerUserFee
       setIsSubmitting(false);
     }
   }, [isOpen]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, handleClose]);
 
   const handleSubmit = async () => {
     if (!feedback.trim()) return;
@@ -60,73 +86,91 @@ export default function PowerUserFeedbackModal({ isOpen, onClose }: PowerUserFee
     onClose();
   };
 
-  const handleClose = () => {
-    setFeedback('');
-    setIsSubmitting(false);
-    onClose();
-  };
-
-  // Don't render anything if not open to ensure clean unmount
-  if (!isOpen) return null;
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose} modal>
-      <DialogContent 
-        className="sm:max-w-[500px]" 
-        onPointerDownOutside={handleClose} 
-        onEscapeKeyDown={handleClose}
-        onInteractOutside={handleClose}
-      >
-        <DialogHeader>
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1 text-yellow-500">
-              <Star className="h-5 w-5 fill-current" />
-              <Star className="h-5 w-5 fill-current" />
-              <Star className="h-5 w-5 fill-current" />
-            </div>
-            <DialogTitle className="text-lg">You&apos;re a power user! 🚀</DialogTitle>
-          </div>
-          <DialogDescription className="text-base leading-relaxed">
-            <strong>Help us shape the future of Unlazy</strong> - What&apos;s working? What&apos;s not working? What would you like to see in the future?
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="grid gap-4 py-4">
-          <Textarea
-            value={feedback}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFeedback(e.target.value)}
-            placeholder="Your honest feedback helps us build something amazing..."
-            className="min-h-[120px] resize-none"
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={handleClose}
+            className="fixed inset-0 z-50 bg-black/50"
           />
-        </div>
-        
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleSkip}
-            disabled={isSubmitting}
-            className="sm:mr-2"
+          
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && handleClose()}
           >
-            Maybe later
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting || !feedback.trim()}
-            className="bg-[var(--brand-green)] hover:bg-[var(--brand-green)]/90"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Sending...
-              </>
-            ) : (
-              'Send Feedback'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
+              {/* Close button */}
+              <button
+                onClick={handleClose}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              {/* Header */}
+              <div className="mb-6">
+                <div className="flex items-center space-x-2 mb-2">
+                  <div className="flex items-center space-x-1 text-yellow-500">
+                    <Star className="h-5 w-5 fill-current" />
+                    <Star className="h-5 w-5 fill-current" />
+                    <Star className="h-5 w-5 fill-current" />
+                  </div>
+                  <h2 className="text-lg font-semibold">You&apos;re a power user! 🚀</h2>
+                </div>
+                <p className="text-base leading-relaxed text-gray-600">
+                  <strong>Help us shape the future of Unlazy</strong> - What&apos;s working? What&apos;s not working? What would you like to see in the future?
+                </p>
+              </div>
+
+              {/* Content */}
+              <div className="mb-6">
+                <Textarea
+                  value={feedback}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFeedback(e.target.value)}
+                  placeholder="Your honest feedback helps us build something amazing..."
+                  className="min-h-[120px] resize-none w-full"
+                />
+              </div>
+
+              {/* Footer */}
+              <div className="flex gap-3 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSkip}
+                  disabled={isSubmitting}
+                >
+                  Maybe later
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !feedback.trim()}
+                  className="bg-[var(--brand-green)] hover:bg-[var(--brand-green)]/90"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Send Feedback'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
