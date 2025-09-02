@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { AlertTriangle, ArrowUp, AlertOctagon, RefreshCw, Loader2, Settings, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowUp, AlertOctagon, RefreshCw, Loader2, Settings, Trash2, X, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 import ReactMarkdown from 'react-markdown';
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,6 +80,10 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
   const [recentlyFixedGrammarTexts, setRecentlyFixedGrammarTexts] = useState<string[]>([]);
   const [hoveredSource, setHoveredSource] = useState<{source: ResearchSource, index: number} | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{x: number, y: number}>({x: 0, y: 0});
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [dismissedSpellingIssues, setDismissedSpellingIssues] = useState<Set<string>>(new Set());
 
   // Store current session data to restore when switching back
   const [currentSession, setCurrentSession] = useState<{
@@ -395,6 +401,18 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     setResolvedFactCheckTexts(new Set());
   };
 
+  // Function to dismiss a spelling issue
+  const dismissSpellingIssue = (issue: GrammarSpellingIssue) => {
+    const issueId = `${issue.text}-${issue.position?.start}`;
+    const newDismissed = new Set([...dismissedSpellingIssues, issueId]);
+    setDismissedSpellingIssues(newDismissed);
+  };
+
+  // Function to clear all dismissed spelling issues
+  const clearDismissedSpellingIssues = () => {
+    setDismissedSpellingIssues(new Set());
+  };
+
   // Handle tooltip mouse events
   const handleTooltipMouseEnter = (e: React.MouseEvent, source: ResearchSource, index: number) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -409,10 +427,41 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
     setHoveredSource(null);
   };
 
+  // Function to submit feedback via WhatsApp
+  const submitFeedback = async () => {
+    if (!feedbackMessage.trim()) return;
+    
+    setIsSubmittingFeedback(true);
+    try {
+      const response = await fetch('/api/whatsapp-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback: feedbackMessage }),
+      });
+      
+      if (response.ok) {
+        setFeedbackMessage('');
+        setShowFeedbackDialog(false);
+      } else {
+        throw new Error('Failed to submit feedback');
+      }
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
   // Filter fact-check issues based on ignored state (API already filters to HIGH confidence only)
   const filteredFactCheckIssues = factCheckIssues.filter(issue => {
     const id = generateFactCheckId(issue);
     return !ignoredFactChecks.has(id);
+  });
+
+  // Filter spelling issues based on dismissed state
+  const filteredSpellingIssues = grammarSpellingIssues.filter(issue => {
+    const issueId = `${issue.text}-${issue.position?.start}`;
+    return !dismissedSpellingIssues.has(issueId);
   });
 
   return (
@@ -490,6 +539,14 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                     Clear Ignored Fact Checks
                     <Trash2 className="h-3 w-3 text-red-600" />
                   </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="flex items-center justify-between text-xs text-black/80 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                    onClick={clearDismissedSpellingIssues}
+                    disabled={dismissedSpellingIssues.size === 0}
+                  >
+                    Clear Dismissed Spellings
+                    <Trash2 className="h-3 w-3 text-red-600" />
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-gray-200" />
                   <DropdownMenuItem 
                     className="flex items-center justify-between text-xs text-black/80 hover:text-red-600 hover:bg-red-50 cursor-pointer"
@@ -498,6 +555,14 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                   >
                     Clear Research History
                     <Trash2 className="h-3 w-3 text-red-600" />
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-gray-200" />
+                  <DropdownMenuItem 
+                    className="flex items-center justify-between text-xs text-black/80 hover:text-gray-600 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => setShowFeedbackDialog(true)}
+                  >
+                    Feedback
+                    <MessageSquare className="h-3 w-3 text-gray-600" />
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -534,21 +599,21 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                 )}
 
                 {/* Grammar Check Notification */}
-                {grammarCheckEnabled && grammarSpellingIssues.length > 0 && (
+                {grammarCheckEnabled && filteredSpellingIssues.length > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowGrammarDetails(!showGrammarDetails)}
                     className="h-auto p-1 flex items-center space-x-1 text-xs text-orange-600 hover:text-orange-700"
-                    title={`Grammar/spelling errors: ${grammarSpellingIssues.length}`}
+                    title={`Grammar/spelling errors: ${filteredSpellingIssues.length}`}
                   >
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                    <span>{grammarSpellingIssues.length}</span>
+                    <span>{filteredSpellingIssues.length}</span>
                   </Button>
                 )}
 
                 {/* No Issues - Green Dot */}
-                {factCheckEnabled && grammarCheckEnabled && filteredFactCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && lastCheckedContent.length > 0 && (
+                {factCheckEnabled && grammarCheckEnabled && filteredFactCheckIssues.length === 0 && filteredSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && lastCheckedContent.length > 0 && (
                   <div className="group relative">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50">
@@ -572,7 +637,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto space-y-3">
           {/* Empty State - Your Writing Co-pilot */}
-          {!summary && !isLoadingResearch && !isLoadingFactCheck && !isLoadingGrammarCheck && filteredFactCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length < 3 && (
+          {!summary && !isLoadingResearch && !isLoadingFactCheck && !isLoadingGrammarCheck && filteredFactCheckIssues.length === 0 && filteredSpellingIssues.length === 0 && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length < 3 && (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
               <Image src="/assets/unlazy-logomark.png" alt="Unlazy Logo" width={50} height={50} />
               <div>
@@ -647,11 +712,11 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col space-y-4">
             {/* Combined Issues Section - Unified scrollable list */}
-            {(grammarSpellingIssues.length > 0 || filteredFactCheckIssues.length > 0) && !isLoadingResearch && (
+            {(filteredSpellingIssues.length > 0 || filteredFactCheckIssues.length > 0) && !isLoadingResearch && (
               <div className={`${!summary ? 'flex-1 flex flex-col' : ''} border-t border-gray-200 pt-2`}>
                 <div className={`space-y-2 px-2 overflow-y-auto ${!summary ? 'flex-1' : 'max-h-64'}`}>
                   {/* Grammar/Spelling Issues */}
-                  {grammarCheckEnabled && showGrammarDetails && grammarSpellingIssues.map((issue, index) => (
+                  {grammarCheckEnabled && showGrammarDetails && filteredSpellingIssues.map((issue, index) => (
                     <motion.div
                       key={`grammar-${index}`}
                       initial={{ opacity: 0, y: 5 }}
@@ -685,6 +750,18 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
                             <p className="text-xs text-gray-500 mt-1 italic break-words overflow-hidden w-full">{issue.issue}</p>
                           )}
                         </div>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            dismissSpellingIssue(issue);
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-600 flex-shrink-0"
+                          title="Dismiss this spelling issue"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
                       </div>
                     </motion.div>
                   ))}
@@ -813,7 +890,7 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
           </div>
 
           {/* Subtle Co-pilot Messages */}
-          {factCheckEnabled && grammarCheckEnabled && filteredFactCheckIssues.length === 0 && grammarSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && !summary && lastCheckedContent.length > 0 && (
+          {factCheckEnabled && grammarCheckEnabled && filteredFactCheckIssues.length === 0 && filteredSpellingIssues.length === 0 && !isLoadingFactCheck && !isLoadingGrammarCheck && !isLoadingResearch && content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length >= 3 && !summary && lastCheckedContent.length > 0 && (
             <div className="flex-1 flex items-center justify-center">
               <motion.div 
                 initial={{ opacity: 0 }}
@@ -835,6 +912,50 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
             </div>
           )}
         </div>
+        
+        {/* Feedback Dialog */}
+        <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Send Feedback</DialogTitle>
+              <DialogDescription>
+                Help us improve by sharing your feedback. Your message will be sent to our team via WhatsApp.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <Textarea
+                value={feedbackMessage}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFeedbackMessage(e.target.value)}
+                placeholder="Tell us what you think, report bugs, or suggest improvements..."
+                className="min-h-[100px]"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowFeedbackDialog(false)}
+                disabled={isSubmittingFeedback}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={submitFeedback}
+                disabled={isSubmittingFeedback || !feedbackMessage.trim()}
+              >
+                {isSubmittingFeedback ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  'Send Feedback'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         
         {/* Footer - Research History Pagination */}
         {(summary || researchHistory.length > 0) && (

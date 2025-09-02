@@ -9,6 +9,8 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   newsletterDialogShown: boolean('newsletter_dialog_shown').default(false).notNull(),
   newsletterSubscribed: boolean('newsletter_subscribed').default(false).notNull(),
+  documentCount: integer('document_count').default(0).notNull(),
+  powerUserFeedbackShown: boolean('power_user_feedback_shown').default(false).notNull(),
 })
 
 // Documents table

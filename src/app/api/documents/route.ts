@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db/connection'
 import { documents } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
-import { ensureUserExists } from '@/lib/db/users'
+import { ensureUserExists, incrementDocumentCount } from '@/lib/db/users'
 
 export async function GET() {
   try {
@@ -119,7 +119,15 @@ export async function POST(request: NextRequest) {
           })
           .returning()
 
-        return NextResponse.json({ document: newDocument })
+        // Increment document count for the user
+        const updatedUser = await incrementDocumentCount(userId);
+        
+        // Return document with user info for power user feedback check
+        return NextResponse.json({ 
+          document: newDocument,
+          documentCount: updatedUser?.documentCount || 0,
+          powerUserFeedbackShown: updatedUser?.powerUserFeedbackShown || false
+        })
       }
     } catch (dbError) {
       console.error('Database operation failed, returning mock document:', dbError)

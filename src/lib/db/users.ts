@@ -1,6 +1,6 @@
 import { db, withRetry } from './connection'
 import { users } from './schema'
-import { eq, count } from 'drizzle-orm'
+import { eq, count, sql } from 'drizzle-orm'
 import { sendWhatsAppNotification } from '../whatsapp'
 
 export async function ensureUserExists(clerkUserId: string, email: string) {
@@ -108,6 +108,58 @@ export async function getTotalUserCount(): Promise<number> {
   } catch (error) {
     console.error('Error getting total user count:', error)
     return 0
+  }
+}
+
+export async function incrementDocumentCount(clerkUserId: string) {
+  try {
+    if (!db) {
+      console.warn('Database not available, skipping document count increment')
+      return null
+    }
+
+    const [updatedUser] = await withRetry(async () => {
+      return await db!
+        .update(users)
+        .set({
+          documentCount: sql`${users.documentCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.clerkUserId, clerkUserId))
+        .returning()
+    })
+
+    console.log(`User ${clerkUserId} document count incremented to ${updatedUser.documentCount}`)
+    return updatedUser
+  } catch (error) {
+    console.error('Error incrementing document count:', error)
+    return null
+  }
+}
+
+export async function markPowerUserFeedbackShown(clerkUserId: string) {
+  try {
+    if (!db) {
+      console.warn('Database not available, skipping power user feedback update')
+      return null
+    }
+
+    const [updatedUser] = await withRetry(async () => {
+      return await db!
+        .update(users)
+        .set({
+          powerUserFeedbackShown: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.clerkUserId, clerkUserId))
+        .returning()
+    })
+
+    console.log(`User ${clerkUserId} power user feedback marked as shown`)
+    return updatedUser
+  } catch (error) {
+    console.error('Error marking power user feedback as shown:', error)
+    return null
   }
 }
 

@@ -15,6 +15,13 @@
       "when": 1752005900000,
       "tag": "0001_add_newsletter_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1756839271758,
+      "tag": "0002_material_starhawk",
+      "breakpoints": true
     }
   ]
 }

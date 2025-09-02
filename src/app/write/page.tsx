@@ -29,6 +29,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import PowerUserFeedbackModal from '@/components/PowerUserFeedbackModal'
 
 export default function DocumentPage() {
   return (
@@ -42,6 +43,7 @@ function DocumentPageContent() {
   const [showNewsletterDialog, setShowNewsletterDialog] = useState(false)
   const [subscribeToNewsletter, setSubscribeToNewsletter] = useState(true)
   const [isSubmittingNewsletter, setIsSubmittingNewsletter] = useState(false)
+  const [showPowerUserFeedback, setShowPowerUserFeedback] = useState(false)
 
   const { user, isLoaded } = useUser()
   const [title, setTitle] = useState('Untitled Document')
@@ -123,7 +125,7 @@ function DocumentPageContent() {
         throw new Error('Failed to save document')
       }
 
-      const { document: savedDoc } = await response.json()
+      const { document: savedDoc, documentCount, powerUserFeedbackShown } = await response.json()
       
       setDocuments(prev => {
         const existingIndex = prev.findIndex(d => d.id === savedDoc.id)
@@ -149,6 +151,13 @@ function DocumentPageContent() {
       setTimeout(() => {
         setShowSavedMessage(false)
       }, 2000)
+      
+      // Check if we should show power user feedback modal (3rd document created)
+      if (documentCount === 3 && !powerUserFeedbackShown && !currentDocId) {
+        setTimeout(() => {
+          setShowPowerUserFeedback(true)
+        }, 1500) // Show after a slight delay to let the save message appear first
+      }
       
       // Auto-generate title if saving with "Untitled Document" and enough content
       if (titleToSave === 'Untitled Document' && contentToSave && contentToSave.length > 200) {
@@ -465,6 +474,12 @@ function DocumentPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Power User Feedback Modal */}
+      <PowerUserFeedbackModal 
+        isOpen={showPowerUserFeedback}
+        onClose={() => setShowPowerUserFeedback(false)}
+      />
 
       {/* History Sidebar - Hover Overlay */}
       <AnimatePresence>
