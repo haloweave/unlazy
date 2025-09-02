@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AnimatePresence } from 'framer-motion';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
@@ -451,6 +451,32 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
       setIsSubmittingFeedback(false);
     }
   };
+
+  // Close feedback dialog with state cleanup
+  const closeFeedbackDialog = useCallback(() => {
+    setFeedbackMessage('');
+    setIsSubmittingFeedback(false);
+    setShowFeedbackDialog(false);
+  }, []);
+
+  // Handle escape key for feedback dialog
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showFeedbackDialog) {
+        closeFeedbackDialog();
+      }
+    };
+
+    if (showFeedbackDialog) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showFeedbackDialog, closeFeedbackDialog]);
 
   // Filter fact-check issues based on ignored state (API already filters to HIGH confidence only)
   const filteredFactCheckIssues = factCheckIssues.filter(issue => {
@@ -914,48 +940,83 @@ export default function AISidebar({ content, researchQuery, onResearchComplete, 
         </div>
         
         {/* Feedback Dialog */}
-        <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Send Feedback</DialogTitle>
-              <DialogDescription>
-                Help us improve by sharing your feedback. Your message will be sent to our team via WhatsApp.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <Textarea
-                value={feedbackMessage}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFeedbackMessage(e.target.value)}
-                placeholder="Tell us what you think, report bugs, or suggest improvements..."
-                className="min-h-[100px]"
+        <AnimatePresence>
+          {showFeedbackDialog && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={closeFeedbackDialog}
+                className="fixed inset-0 z-50 bg-black/50"
               />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowFeedbackDialog(false)}
-                disabled={isSubmittingFeedback}
+              
+              {/* Modal */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                onClick={(e) => e.target === e.currentTarget && closeFeedbackDialog()}
               >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={submitFeedback}
-                disabled={isSubmittingFeedback || !feedbackMessage.trim()}
-              >
-                {isSubmittingFeedback ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Sending...
-                  </>
-                ) : (
-                  'Send Feedback'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
+                  {/* Close button */}
+                  <button
+                    onClick={closeFeedbackDialog}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  {/* Header */}
+                  <div className="mb-6">
+                    <h2 className="text-lg font-semibold mb-2">Send Feedback</h2>
+                    <p className="text-sm text-gray-600">
+                      Help us improve by sharing your feedback. Your message will be sent to our team via WhatsApp.
+                    </p>
+                  </div>
+
+                  {/* Content */}
+                  <div className="mb-6">
+                    <Textarea
+                      value={feedbackMessage}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFeedbackMessage(e.target.value)}
+                      placeholder="Tell us what you think, report bugs, or suggest improvements..."
+                      className="min-h-[100px] w-full resize-none"
+                    />
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex gap-3 justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={closeFeedbackDialog}
+                      disabled={isSubmittingFeedback}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={submitFeedback}
+                      disabled={isSubmittingFeedback || !feedbackMessage.trim()}
+                    >
+                      {isSubmittingFeedback ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Sending...
+                        </>
+                      ) : (
+                        'Send Feedback'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
         
         {/* Footer - Research History Pagination */}
         {(summary || researchHistory.length > 0) && (
