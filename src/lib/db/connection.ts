@@ -9,6 +9,7 @@ const connectionString = process.env.DATABASE_URL
 if (!connectionString) {
   console.error('DATABASE_URL not found in environment variables')
 } else {
+  console.log('DATABASE_URL found, length:', connectionString.length)
 }
 
 // Create the connection only if DATABASE_URL exists
@@ -59,8 +60,9 @@ if (connectionString) {
     // Test the connection with retry
     withRetry(async () => {
       await client!`SELECT 1`
+      console.log('Database connection test PASSED')
     }).catch((error) => {
-      console.error('Database connection test failed after retries:', error)
+      console.error('Database connection test FAILED after retries:', error)
       // Don't fail completely, just log the error
     })
     

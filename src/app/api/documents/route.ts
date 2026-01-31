@@ -11,23 +11,30 @@ export async function GET() {
     const user = await currentUser()
     
     if (!userId || !user) {
+      console.log('GET /api/documents - Unauthorized: userId=', userId, 'user=', !!user)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('GET /api/documents - userId:', userId, 'email:', user.emailAddresses[0]?.emailAddress)
+
     // Check if database is available
     if (!db) {
-      console.log('Database not available, falling back to empty documents list')
+      console.error('GET /api/documents - db is NULL, DATABASE_URL missing or connection failed')
       return NextResponse.json({ documents: [] })
     }
+
+    console.log('GET /api/documents - db is available')
 
     try {
       // Ensure user exists in database (handles previously logged in users)
       const userExists = await ensureUserExists(userId, user.emailAddresses[0]?.emailAddress || '')
-      
+
       if (!userExists) {
-        console.warn('Could not ensure user exists, falling back to empty documents')
+        console.error('GET /api/documents - ensureUserExists returned null for userId:', userId)
         return NextResponse.json({ documents: [] })
       }
+
+      console.log('GET /api/documents - user exists, querying documents...')
 
       const userDocuments = await db
         .select()
@@ -35,9 +42,11 @@ export async function GET() {
         .where(eq(documents.userId, userId))
         .orderBy(desc(documents.updatedAt))
 
+      console.log('GET /api/documents - found', userDocuments.length, 'documents for userId:', userId)
+
       return NextResponse.json({ documents: userDocuments })
     } catch (dbError) {
-      console.error('Database connection failed, falling back:', dbError)
+      console.error('GET /api/documents - DB query failed:', dbError)
       return NextResponse.json({ documents: [] })
     }
   } catch (error) {
@@ -62,9 +71,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 })
     }
 
+    console.log('POST /api/documents - userId:', userId, 'docId:', id || 'NEW', 'title:', title)
+
     // Check if database is available
     if (!db) {
-      console.log('Database not available, returning mock document')
+      console.error('POST /api/documents - db is NULL, returning mock document (NOT SAVED)')
       const document = {
         id: id || Date.now().toString(),
         title,
@@ -78,9 +89,9 @@ export async function POST(request: NextRequest) {
     try {
       // Ensure user exists in database (handles previously logged in users)
       const userExists = await ensureUserExists(userId, user.emailAddresses[0]?.emailAddress || '')
-      
+
       if (!userExists) {
-        console.warn('Could not ensure user exists, returning mock document')
+        console.error('POST /api/documents - ensureUserExists returned null, returning mock document (NOT SAVED)')
         const document = {
           id: id || Date.now().toString(),
           title,
@@ -130,7 +141,7 @@ export async function POST(request: NextRequest) {
         })
       }
     } catch (dbError) {
-      console.error('Database operation failed, returning mock document:', dbError)
+      console.error('POST /api/documents - DB operation FAILED, returning mock (NOT SAVED):', dbError)
       const document = {
         id: id || Date.now().toString(),
         title,
