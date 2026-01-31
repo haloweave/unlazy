@@ -9,7 +9,9 @@ const connectionString = process.env.DATABASE_URL
 if (!connectionString) {
   console.error('DATABASE_URL not found in environment variables')
 } else {
-  console.log('DATABASE_URL found, length:', connectionString.length)
+  // Log enough to identify which DB is being used without exposing the full password
+  const masked = connectionString.replace(/:([^@]{3})[^@]*@/, ':$1***@')
+  console.log('DATABASE_URL:', masked)
 }
 
 // Create the connection only if DATABASE_URL exists
